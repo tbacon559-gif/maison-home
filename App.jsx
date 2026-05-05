@@ -1,26 +1,31 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
-  ZONE_ORDER, INITIAL_TASKS, WEEK, FULL_DAY, INITIAL_MEALS,
-  INITIAL_GROCERIES, INITIAL_GIRLS, INITIAL_HOUSEHOLD,
-  INITIAL_SITTER_NOTES, INITIAL_MOMENTS, INITIAL_SETTINGS,
+  INITIAL_DAILY, INITIAL_WEEKLY, INITIAL_STREAK,
+  INITIAL_MEALS, INITIAL_GROCERIES, INITIAL_TOBUY, INITIAL_NOTES,
+  INITIAL_GIRLS, INITIAL_HOUSEHOLD, INITIAL_SITTER_NOTES,
+  INITIAL_MOMENTS, INITIAL_SETTINGS,
 } from './data/initial.js';
 
 import {
   calcAge, nextBirthday, shortDate, todayLabel,
-  todayZone, tomorrowZone, relativeLabel, timeLabel,
+  relativeLabel, timeLabel,
 } from './lib/dates.js';
 
 import { lsGet, lsSet, photoSave, photoGet, photoDelete } from './lib/storage.js';
 import { upcomingEvents } from './lib/ics.js';
 import { buildMomentSVG, getImageDims, shareOrDownload } from './lib/svg.js';
+import {
+  evaluateStreak, resetDaily, resetWeekly, shouldResetWeekly,
+} from './lib/streak.js';
 
 import { Checkbox, EditToggle, SectionHead, Styles } from './components/Components.jsx';
 import WelcomeOverlay from './components/WelcomeOverlay.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import SitterCardModal from './components/SitterCardModal.jsx';
+import TidyTab from './components/TidyTab.jsx';
+import KitchenTab from './components/KitchenTab.jsx';
 
-// ─── Hook: persisted state ──────────────────────────────────────
 function usePersistedState(key, initial) {
   const [value, setValue] = useState(() => lsGet(key, initial));
   useEffect(() => {
@@ -29,18 +34,21 @@ function usePersistedState(key, initial) {
   return [value, setValue];
 }
 
-// ─── App ────────────────────────────────────────────────────────
 export default function App() {
   // Persisted state
-  const [tasksByZone, setTasksByZone] = usePersistedState('tasks', INITIAL_TASKS);
+  const [daily, setDaily] = usePersistedState('daily', INITIAL_DAILY);
+  const [weekly, setWeekly] = usePersistedState('weekly', INITIAL_WEEKLY);
+  const [streak, setStreak] = usePersistedState('streak', INITIAL_STREAK);
+  const [lastWeeklyResetDate, setLastWeeklyResetDate] = usePersistedState('lastWeeklyResetDate', null);
   const [meals, setMeals] = usePersistedState('meals', INITIAL_MEALS);
   const [groceries, setGroceries] = usePersistedState('groceries', INITIAL_GROCERIES);
+  const [toBuy, setToBuy] = usePersistedState('toBuy', INITIAL_TOBUY);
+  const [notes, setNotes] = usePersistedState('notes', INITIAL_NOTES);
   const [girls, setGirls] = usePersistedState('girls', INITIAL_GIRLS);
   const [household, setHousehold] = usePersistedState('household', INITIAL_HOUSEHOLD);
   const [sitterNotes, setSitterNotes] = usePersistedState('sitterNotes', INITIAL_SITTER_NOTES);
   const [moments, setMoments] = usePersistedState('moments', INITIAL_MOMENTS);
   const [settings, setSettings] = usePersistedState('settings', INITIAL_SETTINGS);
-  const [winsBaseline] = useState(0);
 
   // Volatile UI state
   const [activeNav, setActiveNav] = useState('Today');
@@ -50,44 +58,57 @@ export default function App() {
   const [showSitterCard, setShowSitterCard] = useState(false);
 
   const [calendarEvents, setCalendarEvents] = useState([]);
-  const [calendarStatus, setCalendarStatus] = useState('idle'); // idle | loading | ok | error | unset
+  const [calendarStatus, setCalendarStatus] = useState('idle');
 
-  const [note, setNote] = useState('');
-  const [expandedZone, setExpandedZone] = useState(null);
-  const [expandedDay, setExpandedDay] = useState(null);
-
-  const [editingZone, setEditingZone] = useState(null);
+  const [newNote, setNewNote] = useState('');
+  const [editingDaily, setEditingDaily] = useState(false);
+  const [editingWeekly, setEditingWeekly] = useState(false);
   const [editingDay, setEditingDay] = useState(null);
   const [editingGroceries, setEditingGroceries] = useState(false);
+  const [editingToBuy, setEditingToBuy] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(false);
   const [editingGirl, setEditingGirl] = useState(null);
   const [editingHousehold, setEditingHousehold] = useState(false);
-  const [editingNotes, setEditingNotes] = useState(false);
+  const [editingSitter, setEditingSitter] = useState(false);
 
   const [pendingPhotos, setPendingPhotos] = useState([]);
   const fileInputRef = useRef(null);
   const [shareMomentStatus, setShareMomentStatus] = useState({});
-  const [photoCache, setPhotoCache] = useState({}); // momentId -> dataUrl
+  const [photoCache, setPhotoCache] = useState({});
 
-  // Compute today's zone
-  const tZone = todayZone(ZONE_ORDER) || ZONE_ORDER[0];
-  const todayTasks = tasksByZone[tZone] || [];
-  const completedToday = todayTasks.filter((t) => t.done).length;
-  const tmrwZone = tomorrowZone(ZONE_ORDER);
+  const dailyAll = [...daily.day, ...daily.night];
+  const dailyDone = dailyAll.filter((t) => t.done).length;
+  const notesActive = notes.filter((n) => !n.done).length;
 
-  // Greeting based on time of day
+  // Greeting
   useEffect(() => {
     const h = new Date().getHours();
     setGreeting(h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
   }, []);
 
-  // Open default expanded zone/day to today
+  // ─── Day-rollover logic: evaluate streak, reset daily, maybe reset weekly ──
+  // Run once per app open.
   useEffect(() => {
-    setExpandedZone(tZone);
-    const today = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][new Date().getDay()];
-    setExpandedDay(today);
-  }, [tZone]);
+    const { streak: newStreak, shouldReset } = evaluateStreak(streak, daily);
+    if (shouldReset) {
+      setDaily(resetDaily(daily));
+    }
+    if (newStreak !== streak) {
+      setStreak(newStreak);
+    }
+    // Weekly reset
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    if (!lastWeeklyResetDate) {
+      setLastWeeklyResetDate(todayStr);
+    } else if (shouldResetWeekly(lastWeeklyResetDate, today)) {
+      setWeekly(resetWeekly(weekly));
+      setLastWeeklyResetDate(todayStr);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Fetch calendar
+  // Calendar fetch
   const fetchCalendar = useCallback(async () => {
     if (!settings.calendarUrl) {
       setCalendarStatus('unset');
@@ -112,7 +133,7 @@ export default function App() {
     fetchCalendar();
   }, [fetchCalendar]);
 
-  // Load photos referenced by moments from IndexedDB
+  // Photo loading
   useEffect(() => {
     const idsNeeded = moments.filter((m) => m.photoId && !photoCache[m.photoId]).map((m) => m.photoId);
     if (idsNeeded.length === 0) return;
@@ -134,26 +155,18 @@ export default function App() {
     return () => { cancelled = true; };
   }, [moments, photoCache]);
 
-  // ─── Mutations ────────────────────────────────────────────────
-  const toggleTask = (zone, id) =>
-    setTasksByZone((p) => ({ ...p, [zone]: p[zone].map((t) => (t.id === id ? { ...t, done: !t.done } : t)) }));
-  const editTaskLabel = (zone, id, label) =>
-    setTasksByZone((p) => ({ ...p, [zone]: p[zone].map((t) => (t.id === id ? { ...t, label } : t)) }));
-  const deleteTask = (zone, id) =>
-    setTasksByZone((p) => ({ ...p, [zone]: p[zone].filter((t) => t.id !== id) }));
-  const addTask = (zone) =>
-    setTasksByZone((p) => ({ ...p, [zone]: [...p[zone], { id: Date.now(), label: '', done: false }] }));
+  // Quick Notes ops
+  const addNote = () => {
+    if (!newNote.trim()) return;
+    setNotes((p) => [...p, { id: Date.now(), text: newNote.trim(), done: false }]);
+    setNewNote('');
+  };
+  const toggleNote = (id) => setNotes((p) => p.map((n) => (n.id === id ? { ...n, done: !n.done } : n)));
+  const editNote = (id, text) => setNotes((p) => p.map((n) => (n.id === id ? { ...n, text } : n)));
+  const deleteNote = (id) => setNotes((p) => p.filter((n) => n.id !== id));
 
-  const editMeal = (day, slot, val) =>
-    setMeals((p) => ({ ...p, [day]: { ...p[day], [slot]: val } }));
-
-  const toggleGrocery = (id) => setGroceries((p) => p.map((g) => (g.id === id ? { ...g, got: !g.got } : g)));
-  const editGrocery = (id, item) => setGroceries((p) => p.map((g) => (g.id === id ? { ...g, item } : g)));
-  const deleteGrocery = (id) => setGroceries((p) => p.filter((g) => g.id !== id));
-  const addGrocery = () => setGroceries((p) => [...p, { id: Date.now(), item: '', got: false }]);
-
+  // Girls / household
   const editGirl = (id, field, val) => setGirls((p) => p.map((g) => (g.id === id ? { ...g, [field]: val } : g)));
-
   const editHousehold = (i, field, val) => setHousehold((p) => p.map((h, idx) => (idx === i ? { ...h, [field]: val } : h)));
   const deleteHousehold = (i) => setHousehold((p) => p.filter((_, idx) => idx !== i));
   const addHousehold = () => setHousehold((p) => [...p, { key: '', value: '' }]);
@@ -188,12 +201,7 @@ export default function App() {
       try {
         await photoSave(photoId, p.dataUrl);
         newCache[photoId] = p.dataUrl;
-        newMoments.push({
-          id: p.id,
-          date: p.date,
-          text: p.caption,
-          photoId,
-        });
+        newMoments.push({ id: p.id, date: p.date, text: p.caption, photoId });
       } catch (err) {
         console.error('photoSave failed', err);
       }
@@ -213,7 +221,6 @@ export default function App() {
     setMoments((all) => all.filter((x) => x.id !== m.id));
   };
 
-  // Share a moment
   const shareMoment = async (moment) => {
     setShareMomentStatus((p) => ({ ...p, [moment.id]: 'sharing' }));
     try {
@@ -238,7 +245,6 @@ export default function App() {
     location.reload();
   };
 
-  // ─── Render ───────────────────────────────────────────────────
   return (
     <div
       className="min-h-screen w-full flex items-start justify-center py-6 px-4"
@@ -294,15 +300,15 @@ export default function App() {
           {/* TODAY */}
           {activeNav === 'Today' && (
             <>
-              <div className="px-7 pt-7 pb-5 fade-in" style={{ animationDelay: '0.05s' }}>
+              <div className="px-7 pt-7 pb-5 fade-in">
                 <h1 className="font-display ink" style={{ fontWeight: 400, fontSize: '34px', lineHeight: 1.1 }}>
                   {greeting},<br />
                   <span className="font-display rose-deep" style={{ fontStyle: 'italic', fontWeight: 300 }}>Tiff</span>
                 </h1>
               </div>
 
-              {/* On the Calendar */}
-              <div className="mx-5 mb-4 cream-card rounded-2xl p-6 border-soft fade-in" style={{ animationDelay: '0.12s' }}>
+              {/* Calendar */}
+              <div className="mx-5 mb-4 cream-card rounded-2xl p-6 border-soft fade-in">
                 <div className="flex items-baseline justify-between">
                   <span className="muted text-[10px] tracking-[0.28em] uppercase font-body">On the Calendar</span>
                   <button onClick={fetchCalendar} className="font-display rose text-[10px] tracking-[0.18em] uppercase nav-btn" style={{ fontWeight: 500 }}>
@@ -325,7 +331,7 @@ export default function App() {
                   {calendarStatus === 'loading' && calendarEvents.length === 0 && (
                     <p className="muted text-[12px] font-body italic">Loading…</p>
                   )}
-                  {(calendarStatus === 'ok' || calendarEvents.length > 0) && calendarEvents.length === 0 && (
+                  {calendarStatus === 'ok' && calendarEvents.length === 0 && (
                     <p className="muted text-[12px] font-body italic">Nothing coming up.</p>
                   )}
                   {calendarEvents.map((e, i) => {
@@ -342,66 +348,65 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Today's Focus */}
-              <div className="mx-5 mb-4 cream-card rounded-2xl p-6 border-soft fade-in" style={{ animationDelay: '0.2s' }}>
-                <div className="flex items-baseline justify-between mb-1">
-                  <span className="muted text-[10px] tracking-[0.28em] uppercase font-body">Today's Focus</span>
+              {/* Quick Notes — persistent list */}
+              <div className="mx-5 mb-4 cream-card rounded-2xl p-6 border-soft fade-in">
+                <div className="flex items-baseline justify-between mb-4">
+                  <span className="muted text-[10px] tracking-[0.28em] uppercase font-body">Quick Notes</span>
+                  <EditToggle editing={editingNotes} onClick={() => setEditingNotes((v) => !v)} />
                 </div>
-                <div className="font-display ink mb-5" style={{ fontWeight: 400, fontSize: '26px' }}>{tZone}</div>
-                <div className="space-y-3.5">
-                  {todayTasks.map((t) => (
-                    <button key={t.id} onClick={() => toggleTask(tZone, t.id)} className="flex items-center gap-3 w-full text-left">
-                      <Checkbox done={t.done} />
-                      <span className={`text-[14px] font-body ${t.done ? 'muted line-through' : 'ink'}`}>{t.label}</span>
-                    </button>
-                  ))}
-                </div>
-                {tmrwZone && (
-                  <div className="mt-5 pt-4 border-t hairline flex items-center justify-between">
-                    <span className="muted text-[11px] font-body">Tomorrow · {tmrwZone}</span>
-                    <button onClick={() => setActiveNav('Tidy')} className="rose text-[14px]">→</button>
-                  </div>
-                )}
-                {!tmrwZone && (
-                  <div className="mt-5 pt-4 border-t hairline">
-                    <span className="muted text-[11px] font-body italic font-display">Tomorrow's yours.</span>
-                  </div>
-                )}
-              </div>
 
-              {/* On the Table */}
-              <div className="mx-5 mb-4 cream-card rounded-2xl p-6 border-soft fade-in" style={{ animationDelay: '0.28s' }}>
-                <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-4">On the Table</div>
-                <TodayMeals meals={meals} />
-                <div className="mt-5 pt-4 border-t hairline">
-                  <button onClick={() => setActiveNav('Meals')} className="muted text-[11px] font-body flex items-center justify-between w-full">
-                    <span>Plan the week</span>
-                    <span className="rose">→</span>
+                <div className="flex items-center gap-2 mb-4 pb-4 border-b hairline">
+                  <input
+                    type="text"
+                    placeholder="Don't forget…"
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                    className="flex-1 bg-transparent outline-none ink text-[14px] font-body"
+                  />
+                  <button onClick={addNote} disabled={!newNote.trim()}
+                    className="font-display rose-deep text-[11px] tracking-[0.18em] uppercase nav-btn"
+                    style={{ fontWeight: 500, opacity: newNote.trim() ? 1 : 0.3 }}>
+                    Add
                   </button>
                 </div>
-              </div>
 
-              {/* Quick Note */}
-              <div className="mx-5 mb-5 fade-in" style={{ animationDelay: '0.36s' }}>
-                <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-2.5 px-1">Quick Note</div>
-                <div className="cream-card rounded-2xl px-5 py-4 border-soft">
-                  <input type="text" placeholder="Don't forget…" value={note} onChange={(e) => setNote(e.target.value)}
-                    className="w-full bg-transparent outline-none ink text-[14px] font-body" />
+                <div className="space-y-3">
+                  {notes.length === 0 && (
+                    <p className="muted text-[12px] font-body italic font-display text-center py-2">
+                      A clear head. Nothing pending.
+                    </p>
+                  )}
+                  {notes.map((n) => (
+                    <div key={n.id} className="flex items-center gap-3">
+                      <button onClick={() => !editingNotes && toggleNote(n.id)}>
+                        <Checkbox done={n.done} />
+                      </button>
+                      {editingNotes ? (
+                        <>
+                          <input className="edit-input ink text-[14px] font-body flex-1"
+                            value={n.text}
+                            onChange={(e) => editNote(n.id, e.target.value)} />
+                          <button onClick={() => deleteNote(n.id)} className="muted text-base">×</button>
+                        </>
+                      ) : (
+                        <span className={`text-[14px] font-body flex-1 ${n.done ? 'muted line-through' : 'ink'}`}>{n.text}</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Wins */}
-              <div className="mx-7 mb-8 pt-5 border-t hairline fade-in" style={{ animationDelay: '0.42s' }}>
+              {/* Today's Wins */}
+              <div className="mx-7 mb-8 mt-2 pt-5 border-t hairline fade-in">
                 <div className="flex items-end justify-between">
                   <div>
                     <div className="muted text-[10px] tracking-[0.28em] uppercase font-body">Today's Wins</div>
-                    <div className="muted text-[12px] font-body mt-2 leading-relaxed" style={{ maxWidth: '230px' }}>
-                      {completedToday > 0 ? `${completedToday} task${completedToday > 1 ? 's' : ''} done · keep going.` : 'Every small thing counts.'}
+                    <div className="muted text-[12px] font-body mt-2" style={{ maxWidth: '230px' }}>
+                      {dailyDone > 0 ? `${dailyDone} task${dailyDone > 1 ? 's' : ''} done · keep going.` : 'Every small thing counts.'}
                     </div>
                   </div>
-                  <div className="font-display rose-deep" style={{ fontWeight: 400, fontSize: '36px', lineHeight: 1 }}>
-                    {winsBaseline + completedToday}
-                  </div>
+                  <div className="font-display rose-deep" style={{ fontWeight: 400, fontSize: '36px', lineHeight: 1 }}>{dailyDone}</div>
                 </div>
               </div>
             </>
@@ -409,144 +414,25 @@ export default function App() {
 
           {/* TIDY */}
           {activeNav === 'Tidy' && (
-            <div className="pt-6 px-5 pb-8">
-              <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed">
-                One zone a day, Mon–Fri. Three small tasks. Weekends are yours.
-              </p>
-              <div className="space-y-3">
-                {ZONE_ORDER.map((zone, i) => {
-                  const isToday = zone === tZone;
-                  const isOpen = expandedZone === zone;
-                  const isEditing = editingZone === zone;
-                  const t = tasksByZone[zone] || [];
-                  const done = t.filter((x) => x.done).length;
-                  const dayName = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][i];
-                  return (
-                    <div key={zone} className="cream-card rounded-2xl border-soft overflow-hidden fade-in" style={{ animationDelay: `${0.05 + i * 0.05}s` }}>
-                      <button onClick={() => setExpandedZone(isOpen ? null : zone)} className="w-full flex items-center justify-between px-6 py-5 text-left">
-                        <div>
-                          <div className="flex items-baseline gap-3">
-                            <span className="font-display rose uppercase tracking-[0.18em] text-[10px]" style={{ fontWeight: 500 }}>{dayName}</span>
-                            {isToday && <span className="rose-deep text-[10px] tracking-[0.16em] uppercase font-body" style={{ fontWeight: 600 }}>· today</span>}
-                          </div>
-                          <div className="font-display ink mt-1" style={{ fontWeight: 400, fontSize: '20px' }}>{zone}</div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="muted text-[11px] font-body">{done}/{t.length}</span>
-                          <span className="rose text-[12px]" style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.25s', display: 'inline-block' }}>→</span>
-                        </div>
-                      </button>
-                      {isOpen && (
-                        <div className="px-6 pb-5 pt-4 border-t hairline">
-                          <div className="flex justify-end mb-2">
-                            <EditToggle editing={isEditing} onClick={() => setEditingZone(isEditing ? null : zone)} />
-                          </div>
-                          <div className="space-y-3">
-                            {t.map((task) => (
-                              <div key={task.id} className="flex items-center gap-3">
-                                <button onClick={() => !isEditing && toggleTask(zone, task.id)}>
-                                  <Checkbox done={task.done} />
-                                </button>
-                                {isEditing ? (
-                                  <>
-                                    <input className="edit-input ink text-[14px] font-body flex-1"
-                                      value={task.label} placeholder="Task…" onChange={(e) => editTaskLabel(zone, task.id, e.target.value)} />
-                                    <button onClick={() => deleteTask(zone, task.id)} className="muted text-base">×</button>
-                                  </>
-                                ) : (
-                                  <span className={`text-[14px] font-body flex-1 ${task.done ? 'muted line-through' : 'ink'}`}>{task.label}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          {isEditing && (
-                            <button onClick={() => addTask(zone)} className="mt-4 font-display rose-deep text-[11px] tracking-[0.18em] uppercase" style={{ fontWeight: 500 }}>
-                              + Add task
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="muted text-[11px] mt-6 text-center italic font-display">Sat &amp; Sun — your call.</p>
-            </div>
+            <TidyTab
+              daily={daily} setDaily={setDaily}
+              weekly={weekly} setWeekly={setWeekly}
+              streak={streak} setStreak={setStreak}
+              editingDaily={editingDaily} setEditingDaily={setEditingDaily}
+              editingWeekly={editingWeekly} setEditingWeekly={setEditingWeekly}
+            />
           )}
 
-          {/* MEALS */}
-          {activeNav === 'Meals' && (
-            <div className="pt-6 px-5 pb-8">
-              <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed">The week's plan. Tap a day to edit meals.</p>
-              <div className="space-y-2 mb-7">
-                {WEEK.map((d, i) => {
-                  const isOpen = expandedDay === d;
-                  const isEditing = editingDay === d;
-                  const m = meals[d];
-                  return (
-                    <div key={d} className="cream-card rounded-2xl border-soft overflow-hidden fade-in" style={{ animationDelay: `${0.04 + i * 0.04}s` }}>
-                      <button onClick={() => setExpandedDay(isOpen ? null : d)} className="w-full flex items-center justify-between px-6 py-4 text-left">
-                        <span className="font-display ink" style={{ fontWeight: 400, fontSize: '16px' }}>{FULL_DAY[d]}</span>
-                        <span className="rose text-[12px]" style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.25s', display: 'inline-block' }}>→</span>
-                      </button>
-                      {isOpen && (
-                        <div className="px-6 pb-5 pt-3 border-t hairline">
-                          <div className="flex justify-end mb-2">
-                            <EditToggle editing={isEditing} onClick={() => setEditingDay(isEditing ? null : d)} />
-                          </div>
-                          <div className="space-y-2.5">
-                            {[['Bkfst', 'B'], ['Lunch', 'L'], ['Dinner', 'D']].map(([k, slot]) => (
-                              <div key={slot} className="flex items-baseline gap-4">
-                                <span className="font-display rose uppercase tracking-[0.18em] w-[48px] text-[10px]" style={{ fontWeight: 500 }}>{k}</span>
-                                {isEditing ? (
-                                  <input className="edit-input ink text-[13px] font-body flex-1"
-                                    value={m[slot] || ''} onChange={(e) => editMeal(d, slot, e.target.value)} />
-                                ) : (
-                                  <span className="ink text-[13px] font-body">{m[slot]}</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="cream-card rounded-2xl p-6 border-soft">
-                <div className="flex items-baseline justify-between mb-1">
-                  <span className="muted text-[10px] tracking-[0.28em] uppercase font-body">Grocery List</span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-display rose text-[11px]" style={{ fontStyle: 'italic' }}>{groceries.filter((g) => !g.got).length} left</span>
-                    <EditToggle editing={editingGroceries} onClick={() => setEditingGroceries((v) => !v)} />
-                  </div>
-                </div>
-                <div className="space-y-3 mt-4">
-                  {groceries.map((g) => (
-                    <div key={g.id} className="flex items-center gap-3">
-                      <button onClick={() => !editingGroceries && toggleGrocery(g.id)}>
-                        <Checkbox done={g.got} />
-                      </button>
-                      {editingGroceries ? (
-                        <>
-                          <input className="edit-input ink text-[14px] font-body flex-1"
-                            value={g.item} placeholder="Item…" onChange={(e) => editGrocery(g.id, e.target.value)} />
-                          <button onClick={() => deleteGrocery(g.id)} className="muted text-base">×</button>
-                        </>
-                      ) : (
-                        <span className={`text-[14px] font-body flex-1 ${g.got ? 'muted line-through' : 'ink'}`}>{g.item}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {editingGroceries && (
-                  <button onClick={addGrocery} className="mt-4 font-display rose-deep text-[11px] tracking-[0.18em] uppercase" style={{ fontWeight: 500 }}>
-                    + Add item
-                  </button>
-                )}
-              </div>
-            </div>
+          {/* KITCHEN (was Meals) */}
+          {activeNav === 'Kitchen' && (
+            <KitchenTab
+              meals={meals} setMeals={setMeals}
+              groceries={groceries} setGroceries={setGroceries}
+              toBuy={toBuy} setToBuy={setToBuy}
+              editingDay={editingDay} setEditingDay={setEditingDay}
+              editingGroceries={editingGroceries} setEditingGroceries={setEditingGroceries}
+              editingToBuy={editingToBuy} setEditingToBuy={setEditingToBuy}
+            />
           )}
 
           {/* GIRLS */}
@@ -643,9 +529,9 @@ export default function App() {
                 </div>
 
                 <div className="cream-card rounded-2xl p-6 border-soft">
-                  <SectionHead label="Sitter Notes" editing={editingNotes} onToggle={() => setEditingNotes((v) => !v)} />
+                  <SectionHead label="Sitter Notes" editing={editingSitter} onToggle={() => setEditingSitter((v) => !v)} />
                   <div className="mt-3">
-                    {editingNotes ? (
+                    {editingSitter ? (
                       <textarea rows="6" value={sitterNotes} onChange={(e) => setSitterNotes(e.target.value)}
                         className="edit-input ink text-[14px] font-body w-full" style={{ fontStyle: 'italic', fontFamily: 'Fraunces, Georgia, serif', minHeight: '120px', resize: 'vertical' }}
                         placeholder="Naps, routines, snack rules, anything they should know…" />
@@ -760,7 +646,7 @@ export default function App() {
         {/* BOTTOM NAV */}
         <div className="cream-card border-t hairline px-2 pt-3 pb-5">
           <div className="flex justify-around items-center">
-            {['Today', 'Tidy', 'Meals', 'Girls', 'Moments'].map((label) => {
+            {['Today', 'Tidy', 'Kitchen', 'Girls', 'Moments'].map((label) => {
               const active = label === activeNav;
               return (
                 <button key={label} onClick={() => setActiveNav(label)} className="nav-btn flex flex-col items-center py-1 px-3">
@@ -775,22 +661,6 @@ export default function App() {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── Helper component ─────────────────────────────────────────────
-function TodayMeals({ meals }) {
-  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date().getDay()];
-  const m = meals[day] || { B: '', L: '', D: '' };
-  return (
-    <div className="space-y-3.5">
-      {[['Bkfst', m.B], ['Lunch', m.L], ['Dinner', m.D]].map(([k, v]) => (
-        <div key={k} className="flex items-baseline gap-4">
-          <span className="font-display rose uppercase tracking-[0.18em] w-[52px] text-[10px]" style={{ fontWeight: 500 }}>{k}</span>
-          <span className="ink text-[14px] font-body">{v || <span className="muted italic">—</span>}</span>
-        </div>
-      ))}
     </div>
   );
 }

@@ -44,14 +44,14 @@ describe('KitchenTab', () => {
     expect(screen.getByRole('button', { name: /^To-Buy/ })).toBeTruthy();
   });
 
-  it('expands a day to show breakfast/lunch/dinner', async () => {
+  it('expands a day to show lunch and dinner', async () => {
     const user = userEvent.setup();
     render(<Harness />);
     await user.click(screen.getByRole('button', { name: /Monday/ }));
-    expect(screen.getByText(/Bkfst/i)).toBeTruthy();
+    expect(screen.queryByText(/Bkfst/i)).toBeNull();
     expect(screen.getByText(/Lunch/i)).toBeTruthy();
     expect(screen.getByText(/Dinner/i)).toBeTruthy();
-    expect(screen.getByText(INITIAL_MEALS.Mon.B)).toBeTruthy();
+    expect(screen.getByText(INITIAL_MEALS.Mon.L)).toBeTruthy();
   });
 
   it('edits a meal slot when in edit mode', async () => {
@@ -60,10 +60,10 @@ describe('KitchenTab', () => {
     await user.click(screen.getByRole('button', { name: /Monday/ }));
     await user.click(screen.getByRole('button', { name: /✎ Edit/i }));
 
-    const breakfastInput = screen.getAllByDisplayValue(INITIAL_MEALS.Mon.B)[0];
-    await user.clear(breakfastInput);
-    await user.type(breakfastInput, 'Oatmeal');
-    expect(breakfastInput.value).toBe('Oatmeal');
+    const lunchInput = screen.getAllByDisplayValue(INITIAL_MEALS.Mon.L)[0];
+    await user.clear(lunchInput);
+    await user.type(lunchInput, 'Soup');
+    expect(lunchInput.value).toBe('Soup');
   });
 
   it('switches the open dropdown when a different one is clicked', async () => {

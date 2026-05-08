@@ -55,13 +55,13 @@ export const FULL_DAY = {
 };
 
 export const INITIAL_MEALS = {
-  Sun: { B: 'Yogurt parfaits + toast', L: 'PB&Js, apple slices, cheese', D: 'Sheet-pan chicken + rice' },
-  Mon: { B: 'Cereal + berries', L: 'Mac and cheese', D: 'Taco night' },
-  Tue: { B: 'Toast + scrambled eggs', L: 'Quesadillas', D: 'Spaghetti + salad' },
-  Wed: { B: 'Oatmeal + bananas', L: 'Leftover spaghetti', D: 'Slow-cooker pulled pork' },
-  Thu: { B: 'Smoothies', L: 'Grilled cheese + tomato soup', D: 'Pulled pork sandwiches' },
-  Fri: { B: 'Pancakes', L: 'Hot dogs + fruit', D: 'Pizza night' },
-  Sat: { B: 'Eggs + bacon', L: 'Out', D: 'Burgers on the grill' },
+  Sun: { L: 'PB&Js, apple slices, cheese', D: 'Sheet-pan chicken + rice' },
+  Mon: { L: 'Mac and cheese', D: 'Taco night' },
+  Tue: { L: 'Quesadillas', D: 'Spaghetti + salad' },
+  Wed: { L: 'Leftover spaghetti', D: 'Slow-cooker pulled pork' },
+  Thu: { L: 'Grilled cheese + tomato soup', D: 'Pulled pork sandwiches' },
+  Fri: { L: 'Hot dogs + fruit', D: 'Pizza night' },
+  Sat: { L: 'Out', D: 'Burgers on the grill' },
 };
 
 // ─── Lists ────────────────────────────────────────────────────────

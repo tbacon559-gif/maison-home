@@ -103,10 +103,10 @@ describe('initial seed data — meals', () => {
     }
   });
 
-  it('INITIAL_MEALS provides B/L/D for every day', () => {
+  it('INITIAL_MEALS provides L/D for every day', () => {
     for (const key of WEEK) {
       expect(INITIAL_MEALS[key]).toBeDefined();
-      for (const slot of ['B', 'L', 'D']) {
+      for (const slot of ['L', 'D']) {
         expect(INITIAL_MEALS[key][slot]).toBeTypeOf('string');
       }
     }

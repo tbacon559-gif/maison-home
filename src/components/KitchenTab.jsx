@@ -47,7 +47,7 @@ export default function KitchenTab({
                         <EditToggle editing={isEditing} onClick={() => setEditingDay(isEditing ? null : d)} />
                       </div>
                       <div className="space-y-2.5">
-                        {[['Bkfst', 'B'], ['Lunch', 'L'], ['Dinner', 'D']].map(([k, slot]) => (
+                        {[['Lunch', 'L'], ['Dinner', 'D']].map(([k, slot]) => (
                           <div key={slot} className="flex items-baseline gap-4">
                             <span className="font-display rose uppercase tracking-[0.18em] w-[48px] text-[10px]" style={{ fontWeight: 500 }}>{k}</span>
                             {isEditing ? (

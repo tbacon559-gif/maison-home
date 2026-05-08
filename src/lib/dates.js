@@ -1,12 +1,11 @@
 // ─── Date helpers ─────────────────────────────────────────────────
 
-export function calcAge(birthday) {
+export function calcAge(birthday, now = new Date()) {
   if (!birthday) return '';
-  const today = new Date();
   const birth = new Date(birthday + 'T00:00:00');
-  let years = today.getFullYear() - birth.getFullYear();
-  let months = today.getMonth() - birth.getMonth();
-  let days = today.getDate() - birth.getDate();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  let days = now.getDate() - birth.getDate();
   if (days < 0) months--;
   if (months < 0) {
     years--;
@@ -18,15 +17,14 @@ export function calcAge(birthday) {
   return `${years} yr${years > 1 ? 's' : ''} ${months} mo`;
 }
 
-export function nextBirthday(birthday) {
+export function nextBirthday(birthday, now = new Date()) {
   if (!birthday) return null;
-  const today = new Date();
   const birth = new Date(birthday + 'T00:00:00');
-  let next = new Date(today.getFullYear(), birth.getMonth(), birth.getDate());
-  if (next < today) {
-    next = new Date(today.getFullYear() + 1, birth.getMonth(), birth.getDate());
+  let next = new Date(now.getFullYear(), birth.getMonth(), birth.getDate());
+  if (next < now) {
+    next = new Date(now.getFullYear() + 1, birth.getMonth(), birth.getDate());
   }
-  const days = Math.ceil((next - today) / (1000 * 60 * 60 * 24));
+  const days = Math.ceil((next - now) / (1000 * 60 * 60 * 24));
   const turning = next.getFullYear() - birth.getFullYear();
   const dateStr = next.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
   return { dateStr, days, turning };
@@ -36,9 +34,8 @@ export function shortDate(d) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function todayLabel() {
-  const d = new Date();
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+export function todayLabel(now = new Date()) {
+  return now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 // Returns 'Sun' .. 'Sat'
@@ -81,14 +78,14 @@ export function timeLabel(date) {
 
 // Determines the active zone for today (Mon=Kitchen, Tue=Bathrooms, etc.)
 // Sat/Sun return null (free days).
-export function todayZone(zoneOrder = []) {
-  const day = new Date().getDay(); // 0=Sun, 1=Mon, ... 6=Sat
+export function todayZone(zoneOrder = [], now = new Date()) {
+  const day = now.getDay(); // 0=Sun, 1=Mon, ... 6=Sat
   if (day === 0 || day === 6) return null;
   return zoneOrder[day - 1] || null;
 }
 
-export function tomorrowZone(zoneOrder = []) {
-  const day = (new Date().getDay() + 1) % 7;
+export function tomorrowZone(zoneOrder = [], now = new Date()) {
+  const day = (now.getDay() + 1) % 7;
   if (day === 0 || day === 6) return null;
   return zoneOrder[day - 1] || null;
 }

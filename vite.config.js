@@ -6,4 +6,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
   },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.js', 'src/**/*.test.jsx'],
+  },
 });

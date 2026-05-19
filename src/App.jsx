@@ -327,20 +327,20 @@ export default function App() {
                   {calendarStatus === 'unset' && (
                     <button onClick={() => setShowSettings(true)} className="text-left w-full">
                       <p className="muted text-[13px] font-body italic font-display">
-                        Connect your Google Calendar in settings to see what's coming up.
+                        Connect a calendar in settings to see what's coming.
                       </p>
                     </button>
                   )}
                   {calendarStatus === 'error' && (
                     <p className="muted text-[12px] font-body italic">
-                      Couldn't load events. Check the URL in settings.
+                      Couldn't reach the calendar. Try again, or check settings.
                     </p>
                   )}
                   {calendarStatus === 'loading' && calendarEvents.length === 0 && (
                     <p className="muted text-[12px] font-body italic">Loading…</p>
                   )}
                   {calendarStatus === 'ok' && calendarEvents.length === 0 && (
-                    <p className="muted text-[12px] font-body italic">Nothing coming up.</p>
+                    <p className="muted text-[12px] font-body italic">Nothing on the calendar.</p>
                   )}
                   {calendarEvents.map((e, i) => {
                     const when = relativeLabel(e.start);
@@ -366,7 +366,7 @@ export default function App() {
                 <div className="flex items-center gap-2 mb-4 pb-4 border-b hairline">
                   <input
                     type="text"
-                    placeholder="Don't forget…"
+                    placeholder="Hold this for me."
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addNote()}
@@ -382,7 +382,7 @@ export default function App() {
                 <div className="space-y-3">
                   {notes.length === 0 && (
                     <p className="muted text-[12px] font-body italic font-display text-center py-2">
-                      A clear head. Nothing pending.
+                      Nothing pending. A quiet head.
                     </p>
                   )}
                   {notes.map((n) => (
@@ -441,7 +441,7 @@ export default function App() {
           {activeNav === 'Girls' && (
             <div className="pt-6 px-5 pb-8">
               <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed">
-                Sizes, allergies, the essentials. Everything a sitter or grandma might need.
+                The particulars. What a sitter or a grandparent might want to know.
               </p>
               <div className="space-y-4">
                 {girls.map((g, i) => {
@@ -536,7 +536,7 @@ export default function App() {
                     {editingSitter ? (
                       <textarea rows="6" value={sitterNotes} onChange={(e) => setSitterNotes(e.target.value)}
                         className="edit-input ink text-[14px] font-body w-full" style={{ fontStyle: 'italic', fontFamily: 'Fraunces, Georgia, serif', minHeight: '120px', resize: 'vertical' }}
-                        placeholder="Naps, routines, snack rules, anything they should know…" />
+                        placeholder="Naps, routines, anything they should know." />
                     ) : (
                       <p className="ink text-[14px] leading-relaxed font-display whitespace-pre-line" style={{ fontStyle: 'italic' }}>
                         {sitterNotes || <span className="muted">No notes yet.</span>}
@@ -549,7 +549,7 @@ export default function App() {
                   <div className="font-display rose text-[10px] tracking-[0.28em] uppercase mb-2" style={{ fontWeight: 500 }}>✦ Sitter Card</div>
                   <div className="font-display ink mb-2" style={{ fontWeight: 400, fontSize: '20px' }}>The Handoff</div>
                   <p className="muted text-[12px] font-body mb-5 leading-relaxed">
-                    Share everything above as one beautiful image. AirDrop to grandma, text to a sitter.
+                    Share the particulars as one image. AirDrop, text, however.
                   </p>
                   <button onClick={() => setShowSitterCard(true)}
                     className="font-display rose-deep text-[11px] tracking-[0.22em] uppercase nav-btn"
@@ -565,7 +565,7 @@ export default function App() {
           {activeNav === 'Moments' && (
             <div className="pt-6 px-5 pb-8">
               <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed italic font-display">
-                The good stuff. Capture it before you forget.
+                The ordinary, before it goes.
               </p>
 
               <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={onPhotoPick} />
@@ -580,7 +580,7 @@ export default function App() {
 
               {pendingPhotos.length > 0 && (
                 <div className="cream-card rounded-2xl p-5 border-soft mb-6 fade-in">
-                  <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-4">A few words for each…</div>
+                  <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-4">A few words for each.</div>
                   <div className="space-y-5">
                     {pendingPhotos.map((p) => (
                       <div key={p.id} className="flex gap-3">
@@ -588,7 +588,7 @@ export default function App() {
                         <div className="flex-1">
                           <div className="font-display rose uppercase tracking-[0.2em] text-[9px] mb-1" style={{ fontWeight: 500 }}>{p.date}</div>
                           <input className="edit-input ink text-[13px] font-body w-full"
-                            placeholder="What was this?" value={p.caption}
+                            placeholder="What was this." value={p.caption}
                             onChange={(e) => updatePending(p.id, 'caption', e.target.value)} />
                         </div>
                         <button onClick={() => cancelPending(p.id)} className="muted text-base self-start">×</button>
@@ -606,7 +606,7 @@ export default function App() {
 
               {moments.length === 0 && pendingPhotos.length === 0 && (
                 <p className="muted text-[12px] font-body italic font-display text-center mt-12">
-                  Tap "Today's Photos" to start your journal.
+                  When something matters today, keep it here.
                 </p>
               )}
 

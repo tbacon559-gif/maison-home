@@ -33,11 +33,11 @@ export default function TidyTab({
         </div>
         <div className="font-display ink mb-2" style={{ fontWeight: 400, fontSize: '22px' }}>The Rhythm</div>
         <p className="muted text-[11px] font-body italic font-display mb-5">
-          Resets every day at midnight. Same list, fresh slate.
+          A new day, returned to.
         </p>
 
         <SlotEditable
-          title="Daytime" subtitle="quick wins"
+          title="Daytime" subtitle="the small turns"
           tasks={daily.day} editing={editingDaily}
           onToggle={(id) => toggleDaily('day', id)}
           onEdit={(id, val) => editDaily('day', id, val)}
@@ -68,7 +68,7 @@ export default function TidyTab({
         </div>
         <div className="font-display ink mb-2" style={{ fontWeight: 400, fontSize: '22px' }}>The Bigger Stuff</div>
         <p className="muted text-[11px] font-body italic font-display mb-5">
-          When there's a window. Resets every Sunday.
+          When there's a window. A week's wider arc.
         </p>
 
         <div className="space-y-3">
@@ -92,7 +92,7 @@ export default function TidyTab({
         </div>
         {editingWeekly && (
           <button onClick={addWeeklyTask} className="mt-3 font-display rose-deep text-[10px] tracking-[0.18em] uppercase" style={{ fontWeight: 500 }}>
-            + Add weekly task
+            + Add to the week
           </button>
         )}
       </div>

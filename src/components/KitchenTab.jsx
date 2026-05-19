@@ -3,9 +3,9 @@ import { Checkbox, EditToggle } from './Components.jsx';
 import { WEEK, FULL_DAY } from '../data/initial.js';
 
 export default function KitchenTab({
-  meals, setMeals,
-  groceries, setGroceries,
-  toBuy, setToBuy,
+  mealsHook,
+  groceriesHook,
+  toBuyHook,
   editingDay, setEditingDay,
   editingGroceries, setEditingGroceries,
   editingToBuy, setEditingToBuy,
@@ -13,8 +13,9 @@ export default function KitchenTab({
   const [openList, setOpenList] = useState('meals');
   const [expandedDay, setExpandedDay] = useState(null);
 
-  const editMeal = (day, slot, val) =>
-    setMeals((p) => ({ ...p, [day]: { ...p[day], [slot]: val } }));
+  const meals = mealsHook.meals;
+  const groceries = groceriesHook.items;
+  const toBuy = toBuyHook.items;
 
   return (
     <div className="pt-6 px-5 pb-8">
@@ -33,7 +34,7 @@ export default function KitchenTab({
             {WEEK.map((d, i) => {
               const isOpen = expandedDay === d;
               const isEditing = editingDay === d;
-              const m = meals[d] || { B: '', L: '', D: '' };
+              const m = meals[d] || { L: '', D: '' };
               return (
                 <div key={d} className={i === 0 ? '' : 'border-t hairline'}>
                   <button onClick={() => setExpandedDay(isOpen ? null : d)}
@@ -52,7 +53,7 @@ export default function KitchenTab({
                             <span className="font-display rose uppercase tracking-[0.18em] w-[48px] text-[10px]" style={{ fontWeight: 500 }}>{k}</span>
                             {isEditing ? (
                               <input className="edit-input ink text-[13px] font-body flex-1"
-                                value={m[slot] || ''} onChange={(e) => editMeal(d, slot, e.target.value)} />
+                                value={m[slot] || ''} onChange={(e) => mealsHook.setMeal(d, slot, e.target.value)} />
                             ) : (
                               <span className="ink text-[13px] font-body">{m[slot]}</span>
                             )}
@@ -77,10 +78,10 @@ export default function KitchenTab({
             items={groceries}
             editing={editingGroceries}
             onEditToggle={() => setEditingGroceries((v) => !v)}
-            onCheck={(id) => setGroceries((p) => p.map((x) => x.id === id ? { ...x, got: !x.got } : x))}
-            onEdit={(id, val) => setGroceries((p) => p.map((x) => x.id === id ? { ...x, item: val } : x))}
-            onDelete={(id) => setGroceries((p) => p.filter((x) => x.id !== id))}
-            onAdd={() => setGroceries((p) => [...p, { id: Date.now(), item: '', got: false }])}
+            onCheck={(id) => groceriesHook.toggle(id)}
+            onEdit={(id, val) => groceriesHook.edit(id, val)}
+            onDelete={(id) => groceriesHook.remove(id)}
+            onAdd={() => groceriesHook.add()}
             addLabel="+ Add to the list"
             field="item"
             doneField="got" />
@@ -99,10 +100,10 @@ export default function KitchenTab({
             items={toBuy}
             editing={editingToBuy}
             onEditToggle={() => setEditingToBuy((v) => !v)}
-            onCheck={(id) => setToBuy((p) => p.map((x) => x.id === id ? { ...x, got: !x.got } : x))}
-            onEdit={(id, val) => setToBuy((p) => p.map((x) => x.id === id ? { ...x, item: val } : x))}
-            onDelete={(id) => setToBuy((p) => p.filter((x) => x.id !== id))}
-            onAdd={() => setToBuy((p) => [...p, { id: Date.now(), item: '', got: false }])}
+            onCheck={(id) => toBuyHook.toggle(id)}
+            onEdit={(id, val) => toBuyHook.edit(id, val)}
+            onDelete={(id) => toBuyHook.remove(id)}
+            onAdd={() => toBuyHook.add()}
             addLabel="+ Add to the list"
             field="item"
             doneField="got" />

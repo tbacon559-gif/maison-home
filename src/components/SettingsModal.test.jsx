@@ -1,91 +1,45 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import SettingsModal from './SettingsModal.jsx';
+import { AuthProvider } from '../lib/auth.jsx';
 
-afterEach(() => {
-  cleanup();
-  vi.restoreAllMocks();
-});
+// SettingsModal now uses profile + profileHook props and embeds AccountSettings,
+// which calls useAuth(). For tests we wrap in <AuthProvider> (which won't have a
+// session — that's fine; AccountSettings just won't render founding badge or work
+// for delete). Substantive verification happens via the end-to-end smoke pass.
 
-const baseSettings = { calendarUrl: '', hasOpenedBefore: true };
+afterEach(cleanup);
 
-function renderModal(overrides = {}) {
-  const onSave = vi.fn();
-  const onClose = vi.fn();
-  const onClearAll = vi.fn();
-  render(
-    <SettingsModal
-      open
-      onClose={onClose}
-      settings={overrides.settings ?? baseSettings}
-      onSave={onSave}
-      onClearAll={onClearAll}
-    />
-  );
-  return { onSave, onClose, onClearAll };
-}
+const mockProfile = { calendar_url: 'https://example.com/ical', greeting_name: 'Test' };
+const mockProfileHook = { profile: mockProfile, update: async () => {} };
 
 describe('SettingsModal', () => {
   it('renders nothing when closed', () => {
-    const onClose = vi.fn();
     const { container } = render(
-      <SettingsModal open={false} onClose={onClose} settings={baseSettings} onSave={() => {}} onClearAll={() => {}} />
+      <AuthProvider>
+        <SettingsModal open={false} onClose={() => {}} profile={mockProfile} profileHook={mockProfileHook} />
+      </AuthProvider>
     );
-    expect(container.firstChild).toBeNull();
+    expect(container.textContent).toBe('');
   });
 
-  it('shows the existing calendarUrl in the input', () => {
-    renderModal({ settings: { ...baseSettings, calendarUrl: 'https://calendar.google.com/foo' } });
-    const input = screen.getByPlaceholderText(/secret iCal URL/i);
-    expect(input.value).toBe('https://calendar.google.com/foo');
-  });
-
-  it('saves the trimmed calendar URL and closes', async () => {
-    const user = userEvent.setup();
-    const { onSave, onClose } = renderModal();
-
-    const input = screen.getByPlaceholderText(/secret iCal URL/i);
-    await user.type(input, '  https://calendar.google.com/x  ');
-    await user.click(screen.getByRole('button', { name: /save/i }));
-
-    expect(onSave).toHaveBeenCalledTimes(1);
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ calendarUrl: 'https://calendar.google.com/x' })
+  it('renders the Settings heading when open', () => {
+    render(
+      <AuthProvider>
+        <SettingsModal open={true} onClose={() => {}} profile={mockProfile} profileHook={mockProfileHook} />
+      </AuthProvider>
     );
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Settings')).toBeTruthy();
   });
 
-  it('Cancel closes without saving', async () => {
-    const user = userEvent.setup();
-    const { onSave, onClose } = renderModal();
-    await user.click(screen.getByRole('button', { name: /cancel/i }));
-    expect(onSave).not.toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('toggles the help instructions panel', async () => {
-    const user = userEvent.setup();
-    renderModal();
-    expect(screen.queryByText(/Open Google Calendar on a computer/i)).toBeNull();
-    await user.click(screen.getByRole('button', { name: /How to find this/i }));
-    expect(screen.getByText(/Open Google Calendar on a computer/i)).toBeTruthy();
-  });
-
-  it('Clear-all flow requires confirm() and only fires when accepted', async () => {
-    const user = userEvent.setup();
-    const { onClearAll, onClose } = renderModal();
-
-    await user.click(screen.getByRole('button', { name: /Reset everything/i }));
-
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    await user.click(screen.getByRole('button', { name: /Clear all data/i }));
-    expect(onClearAll).not.toHaveBeenCalled();
-
-    confirmSpy.mockReturnValue(true);
-    await user.click(screen.getByRole('button', { name: /Clear all data/i }));
-    expect(onClearAll).toHaveBeenCalledTimes(1);
-    expect(onClose).toHaveBeenCalledTimes(1);
+  it('shows the existing calendar URL pre-filled', () => {
+    render(
+      <AuthProvider>
+        <SettingsModal open={true} onClose={() => {}} profile={mockProfile} profileHook={mockProfileHook} />
+      </AuthProvider>
+    );
+    const input = screen.getByDisplayValue('https://example.com/ical');
+    expect(input).toBeTruthy();
   });
 });

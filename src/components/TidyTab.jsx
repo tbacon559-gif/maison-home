@@ -1,11 +1,8 @@
 import { Checkbox, EditToggle } from './Components.jsx';
-import { takeRestDay, graceRemaining, dailyPercent } from '../lib/streak.js';
-import { STREAK_THRESHOLD, GRACE_PER_MONTH } from '../data/initial.js';
 
 export default function TidyTab({
   daily, setDaily,
   weekly, setWeekly,
-  streak, setStreak,
   editingDaily, setEditingDaily,
   editingWeekly, setEditingWeekly,
 }) {

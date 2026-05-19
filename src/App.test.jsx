@@ -53,13 +53,6 @@ describe('App shell', () => {
 });
 
 describe('App tab switching', () => {
-  it('navigates to the Tidy tab and shows the streak card', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Tidy' }));
-    expect(screen.getByText(/days strong/i)).toBeTruthy();
-  });
-
   it('navigates to the Kitchen tab and shows the meals dropdown', async () => {
     const user = userEvent.setup();
     render(<App />);

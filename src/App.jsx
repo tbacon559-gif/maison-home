@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
-  INITIAL_DAILY, INITIAL_WEEKLY, INITIAL_STREAK,
+  INITIAL_DAILY, INITIAL_WEEKLY,
   INITIAL_MEALS, INITIAL_GROCERIES, INITIAL_TOBUY, INITIAL_NOTES,
   INITIAL_GIRLS, INITIAL_HOUSEHOLD, INITIAL_SITTER_NOTES,
   INITIAL_MOMENTS, INITIAL_SETTINGS,
@@ -38,7 +38,6 @@ export default function App() {
   // Persisted state
   const [daily, setDaily] = usePersistedState('daily', INITIAL_DAILY);
   const [weekly, setWeekly] = usePersistedState('weekly', INITIAL_WEEKLY);
-  const [streak, setStreak] = usePersistedState('streak', INITIAL_STREAK);
   const [lastDailyResetDate, setLastDailyResetDate] = usePersistedState('lastDailyResetDate', null);
   const [lastWeeklyResetDate, setLastWeeklyResetDate] = usePersistedState('lastWeeklyResetDate', null);
   const [meals, setMeals] = usePersistedState('meals', INITIAL_MEALS);
@@ -420,7 +419,6 @@ export default function App() {
             <TidyTab
               daily={daily} setDaily={setDaily}
               weekly={weekly} setWeekly={setWeekly}
-              streak={streak} setStreak={setStreak}
               editingDaily={editingDaily} setEditingDaily={setEditingDaily}
               editingWeekly={editingWeekly} setEditingWeekly={setEditingWeekly}
             />

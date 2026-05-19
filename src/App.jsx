@@ -16,8 +16,8 @@ import { lsGet, lsSet, photoSave, photoGet, photoDelete } from './lib/storage.js
 import { upcomingEvents } from './lib/ics.js';
 import { buildMomentSVG, getImageDims, shareOrDownload } from './lib/svg.js';
 import {
-  evaluateStreak, resetDaily, resetWeekly, shouldResetWeekly,
-} from './lib/streak.js';
+  resetDaily, resetWeekly, shouldResetDaily, shouldResetWeekly,
+} from './lib/rollover.js';
 
 import { Checkbox, EditToggle, SectionHead, Styles } from './components/Components.jsx';
 import WelcomeOverlay from './components/WelcomeOverlay.jsx';
@@ -39,6 +39,7 @@ export default function App() {
   const [daily, setDaily] = usePersistedState('daily', INITIAL_DAILY);
   const [weekly, setWeekly] = usePersistedState('weekly', INITIAL_WEEKLY);
   const [streak, setStreak] = usePersistedState('streak', INITIAL_STREAK);
+  const [lastDailyResetDate, setLastDailyResetDate] = usePersistedState('lastDailyResetDate', null);
   const [lastWeeklyResetDate, setLastWeeklyResetDate] = usePersistedState('lastWeeklyResetDate', null);
   const [meals, setMeals] = usePersistedState('meals', INITIAL_MEALS);
   const [groceries, setGroceries] = usePersistedState('groceries', INITIAL_GROCERIES);
@@ -86,19 +87,21 @@ export default function App() {
     setGreeting(h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
   }, []);
 
-  // ─── Day-rollover logic: evaluate streak, reset daily, maybe reset weekly ──
+  // ─── Day-rollover logic: reset daily on a new day, reset weekly on Sunday crossing ──
   // Run once per app open.
   useEffect(() => {
-    const { streak: newStreak, shouldReset } = evaluateStreak(streak, daily);
-    if (shouldReset) {
-      setDaily(resetDaily(daily));
-    }
-    if (newStreak !== streak) {
-      setStreak(newStreak);
-    }
-    // Weekly reset
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
+
+    // Daily reset
+    if (!lastDailyResetDate) {
+      setLastDailyResetDate(todayStr);
+    } else if (shouldResetDaily(lastDailyResetDate, today)) {
+      setDaily(resetDaily(daily));
+      setLastDailyResetDate(todayStr);
+    }
+
+    // Weekly reset
     if (!lastWeeklyResetDate) {
       setLastWeeklyResetDate(todayStr);
     } else if (shouldResetWeekly(lastWeeklyResetDate, today)) {

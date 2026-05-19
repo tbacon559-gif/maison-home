@@ -208,6 +208,8 @@ begin
 end;
 $$;
 
+grant execute on function public.seed_new_user(uuid) to authenticated;
+
 -- ─── delete_user_account — full cascade delete ──────────────────────
 create or replace function public.delete_user_account()
 returns void

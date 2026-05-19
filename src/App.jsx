@@ -34,6 +34,14 @@ function usePersistedState(key, initial) {
   return [value, setValue];
 }
 
+function todaysWorkLine(hour = new Date().getHours()) {
+  if (hour < 11) return 'A morning to begin gently.';
+  if (hour < 14) return 'The middle of a day, held.';
+  if (hour < 18) return 'An afternoon, kept as it is.';
+  if (hour < 21) return 'An evening softening down.';
+  return 'A late hour. Be kind to it.';
+}
+
 export default function App() {
   // Persisted state
   const [daily, setDaily] = usePersistedState('daily', INITIAL_DAILY);
@@ -76,8 +84,6 @@ export default function App() {
   const [shareMomentStatus, setShareMomentStatus] = useState({});
   const [photoCache, setPhotoCache] = useState({});
 
-  const dailyAll = [...daily.day, ...daily.night];
-  const dailyDone = dailyAll.filter((t) => t.done).length;
   const notesActive = notes.filter((n) => !n.done).length;
 
   // Greeting
@@ -399,17 +405,12 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Today's Wins */}
+              {/* Today's Work */}
               <div className="mx-7 mb-8 mt-2 pt-5 border-t hairline fade-in">
-                <div className="flex items-end justify-between">
-                  <div>
-                    <div className="muted text-[10px] tracking-[0.28em] uppercase font-body">Today's Wins</div>
-                    <div className="muted text-[12px] font-body mt-2" style={{ maxWidth: '230px' }}>
-                      {dailyDone > 0 ? `${dailyDone} task${dailyDone > 1 ? 's' : ''} done · keep going.` : 'Every small thing counts.'}
-                    </div>
-                  </div>
-                  <div className="font-display rose-deep" style={{ fontWeight: 400, fontSize: '36px', lineHeight: 1 }}>{dailyDone}</div>
-                </div>
+                <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-2">Today's Work</div>
+                <p className="font-display ink text-[15px] leading-snug" style={{ fontStyle: 'italic', fontWeight: 400 }}>
+                  {todaysWorkLine()}
+                </p>
               </div>
             </>
           )}

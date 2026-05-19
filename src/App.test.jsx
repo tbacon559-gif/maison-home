@@ -41,7 +41,7 @@ describe('App shell', () => {
 
   it('renders all five bottom-nav tabs', () => {
     render(<App />);
-    for (const label of ['Today', 'Tidy', 'Kitchen', 'Girls', 'Moments']) {
+    for (const label of ['Today', 'The Keeping', 'Kitchen', 'Girls', 'Moments']) {
       expect(screen.getByRole('button', { name: label })).toBeTruthy();
     }
   });

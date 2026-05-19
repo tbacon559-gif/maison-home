@@ -295,7 +295,8 @@ export default function App() {
         ) : (
           <div key={`h-${activeNav}`} className="pt-5 pb-4 px-7 fade-in flex items-baseline justify-between">
             <h2 className="font-display ink" style={{ fontWeight: 400, fontSize: '24px' }}>
-              {activeNav === 'Girls' ? 'The Girls' : activeNav}
+              {activeNav === 'Girls' ? 'The Girls' :
+               activeNav === 'Tidy'  ? 'The Keeping' : activeNav}
             </h2>
             <span className="font-display rose text-[10px] tracking-[0.32em]" style={{ fontWeight: 400 }}>MAISON</span>
           </div>
@@ -648,10 +649,16 @@ export default function App() {
         {/* BOTTOM NAV */}
         <div className="cream-card border-t hairline px-2 pt-3 pb-5">
           <div className="flex justify-around items-center">
-            {['Today', 'Tidy', 'Kitchen', 'Girls', 'Moments'].map((label) => {
-              const active = label === activeNav;
+            {[
+              { id: 'Today', label: 'Today' },
+              { id: 'Tidy', label: 'The Keeping' },
+              { id: 'Kitchen', label: 'Kitchen' },
+              { id: 'Girls', label: 'Girls' },
+              { id: 'Moments', label: 'Moments' },
+            ].map(({ id, label }) => {
+              const active = id === activeNav;
               return (
-                <button key={label} onClick={() => setActiveNav(label)} className="nav-btn flex flex-col items-center py-1 px-3">
+                <button key={id} onClick={() => setActiveNav(id)} className="nav-btn flex flex-col items-center py-1 px-3">
                   <div className="nav-dot mb-2" style={{ background: active ? '#B8857B' : 'transparent' }} />
                   <span className="text-[9px] tracking-[0.18em] uppercase font-body"
                     style={{ color: active ? '#8B5A4F' : '#8E7B6E', fontWeight: active ? 600 : 400 }}>

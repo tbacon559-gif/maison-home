@@ -3,7 +3,6 @@ import { WELCOME_MESSAGES, pickWelcomeMessage } from './welcome.js';
 import {
   INITIAL_DAILY,
   INITIAL_WEEKLY,
-  INITIAL_STREAK,
   INITIAL_MEALS,
   INITIAL_GROCERIES,
   INITIAL_TOBUY,
@@ -13,8 +12,6 @@ import {
   INITIAL_SITTER_NOTES,
   INITIAL_MOMENTS,
   INITIAL_SETTINGS,
-  STREAK_THRESHOLD,
-  GRACE_PER_MONTH,
   WEEK,
   FULL_DAY,
 } from './initial.js';
@@ -66,28 +63,6 @@ describe('initial seed data — daily/weekly tasks', () => {
     const ids = INITIAL_WEEKLY.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const t of INITIAL_WEEKLY) expect(t.done).toBe(false);
-  });
-});
-
-describe('initial seed data — streak constants', () => {
-  it('STREAK_THRESHOLD is between 0 and 1', () => {
-    expect(STREAK_THRESHOLD).toBeGreaterThan(0);
-    expect(STREAK_THRESHOLD).toBeLessThanOrEqual(1);
-  });
-
-  it('GRACE_PER_MONTH is a positive integer', () => {
-    expect(Number.isInteger(GRACE_PER_MONTH)).toBe(true);
-    expect(GRACE_PER_MONTH).toBeGreaterThan(0);
-  });
-
-  it('INITIAL_STREAK is a fresh zero-ed state', () => {
-    expect(INITIAL_STREAK).toEqual({
-      current: 0,
-      best: 0,
-      lastCheckedDate: null,
-      graceUsedThisMonth: 0,
-      graceMonth: null,
-    });
   });
 });
 

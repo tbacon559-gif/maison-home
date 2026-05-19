@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 import {
-  INITIAL_DAILY, INITIAL_WEEKLY, INITIAL_STREAK,
+  INITIAL_DAILY, INITIAL_WEEKLY,
   INITIAL_MEALS, INITIAL_GROCERIES, INITIAL_TOBUY, INITIAL_NOTES,
   INITIAL_GIRLS, INITIAL_HOUSEHOLD, INITIAL_SITTER_NOTES,
   INITIAL_MOMENTS, INITIAL_SETTINGS,
@@ -16,15 +16,19 @@ import { lsGet, lsSet, photoSave, photoGet, photoDelete } from './lib/storage.js
 import { upcomingEvents } from './lib/ics.js';
 import { buildMomentSVG, getImageDims, shareOrDownload } from './lib/svg.js';
 import {
-  evaluateStreak, resetDaily, resetWeekly, shouldResetWeekly,
-} from './lib/streak.js';
+  resetDaily, resetWeekly, shouldResetDaily, shouldResetWeekly, isSeventhDay,
+} from './lib/rollover.js';
 
+import { essayOfWeek } from './data/keep.js';
 import { Checkbox, EditToggle, SectionHead, Styles } from './components/Components.jsx';
 import WelcomeOverlay from './components/WelcomeOverlay.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import SitterCardModal from './components/SitterCardModal.jsx';
 import TidyTab from './components/TidyTab.jsx';
 import KitchenTab from './components/KitchenTab.jsx';
+import KeepCallout from './components/KeepCallout.jsx';
+import KeepReader from './components/KeepReader.jsx';
+import SeventhDay from './components/SeventhDay.jsx';
 
 function usePersistedState(key, initial) {
   const [value, setValue] = useState(() => lsGet(key, initial));
@@ -34,11 +38,19 @@ function usePersistedState(key, initial) {
   return [value, setValue];
 }
 
+function todaysWorkLine(hour = new Date().getHours()) {
+  if (hour < 11) return 'A morning to begin gently.';
+  if (hour < 14) return 'The middle of a day, held.';
+  if (hour < 18) return 'An afternoon, kept as it is.';
+  if (hour < 21) return 'An evening softening down.';
+  return 'A late hour. Be kind to it.';
+}
+
 export default function App() {
   // Persisted state
   const [daily, setDaily] = usePersistedState('daily', INITIAL_DAILY);
   const [weekly, setWeekly] = usePersistedState('weekly', INITIAL_WEEKLY);
-  const [streak, setStreak] = usePersistedState('streak', INITIAL_STREAK);
+  const [lastDailyResetDate, setLastDailyResetDate] = usePersistedState('lastDailyResetDate', null);
   const [lastWeeklyResetDate, setLastWeeklyResetDate] = usePersistedState('lastWeeklyResetDate', null);
   const [meals, setMeals] = usePersistedState('meals', INITIAL_MEALS);
   const [groceries, setGroceries] = usePersistedState('groceries', INITIAL_GROCERIES);
@@ -56,6 +68,8 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showSitterCard, setShowSitterCard] = useState(false);
+  const [keepReaderOpen, setKeepReaderOpen] = useState(false);
+  const currentEssay = essayOfWeek();
 
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarStatus, setCalendarStatus] = useState('idle');
@@ -76,8 +90,6 @@ export default function App() {
   const [shareMomentStatus, setShareMomentStatus] = useState({});
   const [photoCache, setPhotoCache] = useState({});
 
-  const dailyAll = [...daily.day, ...daily.night];
-  const dailyDone = dailyAll.filter((t) => t.done).length;
   const notesActive = notes.filter((n) => !n.done).length;
 
   // Greeting
@@ -86,19 +98,21 @@ export default function App() {
     setGreeting(h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening');
   }, []);
 
-  // ─── Day-rollover logic: evaluate streak, reset daily, maybe reset weekly ──
+  // ─── Day-rollover logic: reset daily on a new day, reset weekly on Sunday crossing ──
   // Run once per app open.
   useEffect(() => {
-    const { streak: newStreak, shouldReset } = evaluateStreak(streak, daily);
-    if (shouldReset) {
-      setDaily(resetDaily(daily));
-    }
-    if (newStreak !== streak) {
-      setStreak(newStreak);
-    }
-    // Weekly reset
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
+
+    // Daily reset
+    if (!lastDailyResetDate) {
+      setLastDailyResetDate(todayStr);
+    } else if (shouldResetDaily(lastDailyResetDate, today)) {
+      setDaily(resetDaily(daily));
+      setLastDailyResetDate(todayStr);
+    }
+
+    // Weekly reset
     if (!lastWeeklyResetDate) {
       setLastWeeklyResetDate(todayStr);
     } else if (shouldResetWeekly(lastWeeklyResetDate, today)) {
@@ -273,6 +287,11 @@ export default function App() {
           household={household}
           sitterNotes={sitterNotes}
         />
+        <KeepReader
+          open={keepReaderOpen}
+          essay={currentEssay}
+          onClose={() => setKeepReaderOpen(false)}
+        />
 
         {/* HEADER */}
         {activeNav === 'Today' ? (
@@ -287,7 +306,8 @@ export default function App() {
         ) : (
           <div key={`h-${activeNav}`} className="pt-5 pb-4 px-7 fade-in flex items-baseline justify-between">
             <h2 className="font-display ink" style={{ fontWeight: 400, fontSize: '24px' }}>
-              {activeNav === 'Girls' ? 'The Girls' : activeNav}
+              {activeNav === 'Girls' ? 'The Girls' :
+               activeNav === 'Tidy'  ? 'The Keeping' : activeNav}
             </h2>
             <span className="font-display rose text-[10px] tracking-[0.32em]" style={{ fontWeight: 400 }}>MAISON</span>
           </div>
@@ -298,7 +318,9 @@ export default function App() {
         <div className="scroll-area overflow-y-auto flex-1 pb-2" key={activeNav}>
 
           {/* TODAY */}
-          {activeNav === 'Today' && (
+          {activeNav === 'Today' && (isSeventhDay() ? (
+            <SeventhDay moments={moments} photoCache={photoCache} />
+          ) : (
             <>
               <div className="px-7 pt-7 pb-5 fade-in">
                 <h1 className="font-display ink" style={{ fontWeight: 400, fontSize: '34px', lineHeight: 1.1 }}>
@@ -319,20 +341,20 @@ export default function App() {
                   {calendarStatus === 'unset' && (
                     <button onClick={() => setShowSettings(true)} className="text-left w-full">
                       <p className="muted text-[13px] font-body italic font-display">
-                        Connect your Google Calendar in settings to see what's coming up.
+                        Connect a calendar in settings to see what's coming.
                       </p>
                     </button>
                   )}
                   {calendarStatus === 'error' && (
                     <p className="muted text-[12px] font-body italic">
-                      Couldn't load events. Check the URL in settings.
+                      Couldn't reach the calendar. Try again, or check settings.
                     </p>
                   )}
                   {calendarStatus === 'loading' && calendarEvents.length === 0 && (
                     <p className="muted text-[12px] font-body italic">Loading…</p>
                   )}
                   {calendarStatus === 'ok' && calendarEvents.length === 0 && (
-                    <p className="muted text-[12px] font-body italic">Nothing coming up.</p>
+                    <p className="muted text-[12px] font-body italic">Nothing on the calendar.</p>
                   )}
                   {calendarEvents.map((e, i) => {
                     const when = relativeLabel(e.start);
@@ -358,7 +380,7 @@ export default function App() {
                 <div className="flex items-center gap-2 mb-4 pb-4 border-b hairline">
                   <input
                     type="text"
-                    placeholder="Don't forget…"
+                    placeholder="Hold this for me."
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && addNote()}
@@ -374,7 +396,7 @@ export default function App() {
                 <div className="space-y-3">
                   {notes.length === 0 && (
                     <p className="muted text-[12px] font-body italic font-display text-center py-2">
-                      A clear head. Nothing pending.
+                      Nothing pending. A quiet head.
                     </p>
                   )}
                   {notes.map((n) => (
@@ -397,27 +419,23 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Today's Wins */}
+              <KeepCallout essay={currentEssay} onOpen={() => setKeepReaderOpen(true)} />
+
+              {/* Today's Work */}
               <div className="mx-7 mb-8 mt-2 pt-5 border-t hairline fade-in">
-                <div className="flex items-end justify-between">
-                  <div>
-                    <div className="muted text-[10px] tracking-[0.28em] uppercase font-body">Today's Wins</div>
-                    <div className="muted text-[12px] font-body mt-2" style={{ maxWidth: '230px' }}>
-                      {dailyDone > 0 ? `${dailyDone} task${dailyDone > 1 ? 's' : ''} done · keep going.` : 'Every small thing counts.'}
-                    </div>
-                  </div>
-                  <div className="font-display rose-deep" style={{ fontWeight: 400, fontSize: '36px', lineHeight: 1 }}>{dailyDone}</div>
-                </div>
+                <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-2">Today's Work</div>
+                <p className="font-display ink text-[15px] leading-snug" style={{ fontStyle: 'italic', fontWeight: 400 }}>
+                  {todaysWorkLine()}
+                </p>
               </div>
             </>
-          )}
+          ))}
 
           {/* TIDY */}
           {activeNav === 'Tidy' && (
             <TidyTab
               daily={daily} setDaily={setDaily}
               weekly={weekly} setWeekly={setWeekly}
-              streak={streak} setStreak={setStreak}
               editingDaily={editingDaily} setEditingDaily={setEditingDaily}
               editingWeekly={editingWeekly} setEditingWeekly={setEditingWeekly}
             />
@@ -439,7 +457,7 @@ export default function App() {
           {activeNav === 'Girls' && (
             <div className="pt-6 px-5 pb-8">
               <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed">
-                Sizes, allergies, the essentials. Everything a sitter or grandma might need.
+                The particulars. What a sitter or a grandparent might want to know.
               </p>
               <div className="space-y-4">
                 {girls.map((g, i) => {
@@ -534,7 +552,7 @@ export default function App() {
                     {editingSitter ? (
                       <textarea rows="6" value={sitterNotes} onChange={(e) => setSitterNotes(e.target.value)}
                         className="edit-input ink text-[14px] font-body w-full" style={{ fontStyle: 'italic', fontFamily: 'Fraunces, Georgia, serif', minHeight: '120px', resize: 'vertical' }}
-                        placeholder="Naps, routines, snack rules, anything they should know…" />
+                        placeholder="Naps, routines, anything they should know." />
                     ) : (
                       <p className="ink text-[14px] leading-relaxed font-display whitespace-pre-line" style={{ fontStyle: 'italic' }}>
                         {sitterNotes || <span className="muted">No notes yet.</span>}
@@ -547,7 +565,7 @@ export default function App() {
                   <div className="font-display rose text-[10px] tracking-[0.28em] uppercase mb-2" style={{ fontWeight: 500 }}>✦ Sitter Card</div>
                   <div className="font-display ink mb-2" style={{ fontWeight: 400, fontSize: '20px' }}>The Handoff</div>
                   <p className="muted text-[12px] font-body mb-5 leading-relaxed">
-                    Share everything above as one beautiful image. AirDrop to grandma, text to a sitter.
+                    Share the particulars as one image. AirDrop, text, however.
                   </p>
                   <button onClick={() => setShowSitterCard(true)}
                     className="font-display rose-deep text-[11px] tracking-[0.22em] uppercase nav-btn"
@@ -563,7 +581,7 @@ export default function App() {
           {activeNav === 'Moments' && (
             <div className="pt-6 px-5 pb-8">
               <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed italic font-display">
-                The good stuff. Capture it before you forget.
+                The ordinary, before it goes.
               </p>
 
               <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={onPhotoPick} />
@@ -578,7 +596,7 @@ export default function App() {
 
               {pendingPhotos.length > 0 && (
                 <div className="cream-card rounded-2xl p-5 border-soft mb-6 fade-in">
-                  <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-4">A few words for each…</div>
+                  <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-4">A few words for each.</div>
                   <div className="space-y-5">
                     {pendingPhotos.map((p) => (
                       <div key={p.id} className="flex gap-3">
@@ -586,7 +604,7 @@ export default function App() {
                         <div className="flex-1">
                           <div className="font-display rose uppercase tracking-[0.2em] text-[9px] mb-1" style={{ fontWeight: 500 }}>{p.date}</div>
                           <input className="edit-input ink text-[13px] font-body w-full"
-                            placeholder="What was this?" value={p.caption}
+                            placeholder="What was this." value={p.caption}
                             onChange={(e) => updatePending(p.id, 'caption', e.target.value)} />
                         </div>
                         <button onClick={() => cancelPending(p.id)} className="muted text-base self-start">×</button>
@@ -604,7 +622,7 @@ export default function App() {
 
               {moments.length === 0 && pendingPhotos.length === 0 && (
                 <p className="muted text-[12px] font-body italic font-display text-center mt-12">
-                  Tap "Today's Photos" to start your journal.
+                  When something matters today, keep it here.
                 </p>
               )}
 
@@ -646,10 +664,16 @@ export default function App() {
         {/* BOTTOM NAV */}
         <div className="cream-card border-t hairline px-2 pt-3 pb-5">
           <div className="flex justify-around items-center">
-            {['Today', 'Tidy', 'Kitchen', 'Girls', 'Moments'].map((label) => {
-              const active = label === activeNav;
+            {[
+              { id: 'Today', label: 'Today' },
+              { id: 'Tidy', label: 'The Keeping' },
+              { id: 'Kitchen', label: 'Kitchen' },
+              { id: 'Girls', label: 'Girls' },
+              { id: 'Moments', label: 'Moments' },
+            ].map(({ id, label }) => {
+              const active = id === activeNav;
               return (
-                <button key={label} onClick={() => setActiveNav(label)} className="nav-btn flex flex-col items-center py-1 px-3">
+                <button key={id} onClick={() => setActiveNav(id)} className="nav-btn flex flex-col items-center py-1 px-3">
                   <div className="nav-dot mb-2" style={{ background: active ? '#B8857B' : 'transparent' }} />
                   <span className="text-[9px] tracking-[0.18em] uppercase font-body"
                     style={{ color: active ? '#8B5A4F' : '#8E7B6E', fontWeight: active ? 600 : 400 }}>

@@ -50,7 +50,8 @@ describe('KitchenTab', () => {
     await user.click(screen.getByRole('button', { name: /Monday/ }));
     expect(screen.queryByText(/Bkfst/i)).toBeNull();
     expect(screen.getByText(/Lunch/i)).toBeTruthy();
-    expect(screen.getByText(/Dinner/i)).toBeTruthy();
+    // "who's home for dinner?" hint + the Dinner slot label both match /Dinner/i
+    expect(screen.getAllByText(/Dinner/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(INITIAL_MEALS.Mon.L)).toBeTruthy();
   });
 
@@ -105,10 +106,10 @@ describe('KitchenTab', () => {
     render(<Harness />);
     await user.click(screen.getByRole('button', { name: /^Grocery List/ }));
     await user.click(screen.getByRole('button', { name: /✎ Edit/i }));
-    await user.click(screen.getByRole('button', { name: /Add grocery item/i }));
+    await user.click(screen.getByRole('button', { name: /Add to the list/i }));
 
     // Find the empty input that was just added.
-    const inputs = screen.getAllByPlaceholderText(/Item…/);
+    const inputs = screen.getAllByPlaceholderText(/Item\./);
     const newInput = inputs[inputs.length - 1];
     expect(newInput.value).toBe('');
     await user.type(newInput, 'Bananas');

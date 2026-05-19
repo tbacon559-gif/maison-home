@@ -41,25 +41,18 @@ describe('App shell', () => {
 
   it('renders all five bottom-nav tabs', () => {
     render(<App />);
-    for (const label of ['Today', 'Tidy', 'Kitchen', 'Girls', 'Moments']) {
+    for (const label of ['Today', 'The Keeping', 'Kitchen', 'Girls', 'Moments']) {
       expect(screen.getByRole('button', { name: label })).toBeTruthy();
     }
   });
 
   it("shows the calendar 'connect in settings' hint when no URL is set", () => {
     render(<App />);
-    expect(screen.getByText(/Connect your Google Calendar in settings/i)).toBeTruthy();
+    expect(screen.getByText(/Connect a calendar in settings/i)).toBeTruthy();
   });
 });
 
 describe('App tab switching', () => {
-  it('navigates to the Tidy tab and shows the streak card', async () => {
-    const user = userEvent.setup();
-    render(<App />);
-    await user.click(screen.getByRole('button', { name: 'Tidy' }));
-    expect(screen.getByText(/days strong/i)).toBeTruthy();
-  });
-
   it('navigates to the Kitchen tab and shows the meals dropdown', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -79,7 +72,7 @@ describe('App tab switching', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByRole('button', { name: 'Moments' }));
-    expect(screen.getByText(/Tap "Today's Photos"/i)).toBeTruthy();
+    expect(screen.getByText(/When something matters today/i)).toBeTruthy();
   });
 });
 
@@ -109,7 +102,7 @@ describe('App — Quick Notes on Today tab', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const input = screen.getByPlaceholderText(/Don't forget/i);
+    const input = screen.getByPlaceholderText(/Hold this for me/i);
     await user.type(input, 'Pick up dry cleaning');
     await user.click(screen.getByRole('button', { name: /^Add$/ }));
 
@@ -125,7 +118,7 @@ describe('App — Quick Notes on Today tab', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    const input = screen.getByPlaceholderText(/Don't forget/i);
+    const input = screen.getByPlaceholderText(/Hold this for me/i);
     const addBtn = screen.getByRole('button', { name: /^Add$/ });
     expect(addBtn.disabled).toBe(true);
 
@@ -138,7 +131,7 @@ describe('App — persistence', () => {
   it('reloads daily/notes/settings state from localStorage on remount', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<App />);
-    const input = screen.getByPlaceholderText(/Don't forget/i);
+    const input = screen.getByPlaceholderText(/Hold this for me/i);
     await user.type(input, 'Persisted note');
     await user.click(screen.getByRole('button', { name: /^Add$/ }));
     unmount();

@@ -19,7 +19,7 @@ export default function KitchenTab({
   return (
     <div className="pt-6 px-5 pb-8">
       <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed">
-        Meals, groceries, and what else needs grabbing. Tap a section to open.
+        Feeding people. Lists for the week.
       </p>
 
       <div className="space-y-3">
@@ -28,7 +28,7 @@ export default function KitchenTab({
           open={openList === 'meals'}
           onToggle={() => setOpenList(openList === 'meals' ? null : 'meals')}
           label="Meals"
-          hint="this week's plan">
+          hint="who's home for dinner?">
           <div>
             {WEEK.map((d, i) => {
               const isOpen = expandedDay === d;
@@ -72,7 +72,7 @@ export default function KitchenTab({
           open={openList === 'grocery'}
           onToggle={() => setOpenList(openList === 'grocery' ? null : 'grocery')}
           label="Grocery List"
-          hint={`${groceries.filter((g) => !g.got).length} left · this week`}>
+          hint={`${groceries.filter((g) => !g.got).length} left`}>
           <ListEditor
             items={groceries}
             editing={editingGroceries}
@@ -81,7 +81,7 @@ export default function KitchenTab({
             onEdit={(id, val) => setGroceries((p) => p.map((x) => x.id === id ? { ...x, item: val } : x))}
             onDelete={(id) => setGroceries((p) => p.filter((x) => x.id !== id))}
             onAdd={() => setGroceries((p) => [...p, { id: Date.now(), item: '', got: false }])}
-            addLabel="+ Add grocery item"
+            addLabel="+ Add to the list"
             field="item"
             doneField="got" />
         </Dropdown>
@@ -91,9 +91,9 @@ export default function KitchenTab({
           open={openList === 'tobuy'}
           onToggle={() => setOpenList(openList === 'tobuy' ? null : 'tobuy')}
           label="To-Buy"
-          hint={`${toBuy.filter((g) => !g.got).length} left · everything else`}>
+          hint={`${toBuy.filter((g) => !g.got).length} left`}>
           <p className="muted text-[11px] font-body italic font-display mb-3 px-1">
-            Household supplies, gifts, things she'll grab when she's at Target.
+            Household supplies. Gifts. Things to pick up.
           </p>
           <ListEditor
             items={toBuy}
@@ -103,7 +103,7 @@ export default function KitchenTab({
             onEdit={(id, val) => setToBuy((p) => p.map((x) => x.id === id ? { ...x, item: val } : x))}
             onDelete={(id) => setToBuy((p) => p.filter((x) => x.id !== id))}
             onAdd={() => setToBuy((p) => [...p, { id: Date.now(), item: '', got: false }])}
-            addLabel="+ Add to-buy item"
+            addLabel="+ Add to the list"
             field="item"
             doneField="got" />
         </Dropdown>
@@ -149,7 +149,7 @@ function ListEditor({ items, editing, onEditToggle, onCheck, onEdit, onDelete, o
             {editing ? (
               <>
                 <input className="edit-input ink text-[14px] font-body flex-1"
-                  value={it[field]} placeholder="Item…"
+                  value={it[field]} placeholder="Item."
                   onChange={(e) => onEdit(it.id, e.target.value)} />
                 <button onClick={() => onDelete(it.id)} className="muted text-base">×</button>
               </>

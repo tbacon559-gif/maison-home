@@ -1,27 +1,15 @@
 import { Checkbox, EditToggle } from './Components.jsx';
 
 export default function TidyTab({
-  daily, setDaily,
-  weekly, setWeekly,
+  dailyHook,
+  weeklyHook,
   editingDaily, setEditingDaily,
   editingWeekly, setEditingWeekly,
 }) {
+  const daily = { day: dailyHook.day, night: dailyHook.night };
+  const weekly = weeklyHook.tasks;
   const weeklyDone = weekly.filter((t) => t.done).length;
   const weeklyTotal = weekly.length;
-
-  const toggleDaily = (slot, id) =>
-    setDaily((p) => ({ ...p, [slot]: p[slot].map((t) => (t.id === id ? { ...t, done: !t.done } : t)) }));
-  const editDaily = (slot, id, label) =>
-    setDaily((p) => ({ ...p, [slot]: p[slot].map((t) => (t.id === id ? { ...t, label } : t)) }));
-  const deleteDaily = (slot, id) =>
-    setDaily((p) => ({ ...p, [slot]: p[slot].filter((t) => t.id !== id) }));
-  const addDailyTask = (slot) =>
-    setDaily((p) => ({ ...p, [slot]: [...p[slot], { id: Date.now(), label: '', done: false }] }));
-
-  const toggleWeekly = (id) => setWeekly((p) => p.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
-  const editWeeklyTask = (id, label) => setWeekly((p) => p.map((t) => (t.id === id ? { ...t, label } : t)));
-  const deleteWeeklyTask = (id) => setWeekly((p) => p.filter((t) => t.id !== id));
-  const addWeeklyTask = () => setWeekly((p) => [...p, { id: Date.now(), label: '', done: false }]);
 
   return (
     <div className="pt-6 px-5 pb-8">
@@ -39,20 +27,20 @@ export default function TidyTab({
         <SlotEditable
           title="Daytime" subtitle="the small turns"
           tasks={daily.day} editing={editingDaily}
-          onToggle={(id) => toggleDaily('day', id)}
-          onEdit={(id, val) => editDaily('day', id, val)}
-          onDelete={(id) => deleteDaily('day', id)}
-          onAdd={() => addDailyTask('day')} />
+          onToggle={(id) => dailyHook.toggle('day', id)}
+          onEdit={(id, val) => dailyHook.edit(id, val)}
+          onDelete={(id) => dailyHook.remove(id)}
+          onAdd={() => dailyHook.add('day')} />
 
         <div className="border-t hairline my-4" />
 
         <SlotEditable
           title="Tonight" subtitle="after they're down"
           tasks={daily.night} editing={editingDaily}
-          onToggle={(id) => toggleDaily('night', id)}
-          onEdit={(id, val) => editDaily('night', id, val)}
-          onDelete={(id) => deleteDaily('night', id)}
-          onAdd={() => addDailyTask('night')} />
+          onToggle={(id) => dailyHook.toggle('night', id)}
+          onEdit={(id, val) => dailyHook.edit(id, val)}
+          onDelete={(id) => dailyHook.remove(id)}
+          onAdd={() => dailyHook.add('night')} />
       </div>
 
       {/* Weekly — The Bigger Stuff */}
@@ -74,15 +62,15 @@ export default function TidyTab({
         <div className="space-y-3">
           {weekly.map((task) => (
             <div key={task.id} className="flex items-center gap-3">
-              <button onClick={() => !editingWeekly && toggleWeekly(task.id)}>
+              <button onClick={() => !editingWeekly && weeklyHook.toggle(task.id)}>
                 <Checkbox done={task.done} />
               </button>
               {editingWeekly ? (
                 <>
                   <input className="edit-input ink text-[14px] font-body flex-1"
                     value={task.label} placeholder="Task…"
-                    onChange={(e) => editWeeklyTask(task.id, e.target.value)} />
-                  <button onClick={() => deleteWeeklyTask(task.id)} className="muted text-base">×</button>
+                    onChange={(e) => weeklyHook.edit(task.id, e.target.value)} />
+                  <button onClick={() => weeklyHook.remove(task.id)} className="muted text-base">×</button>
                 </>
               ) : (
                 <span className={`text-[14px] font-body flex-1 ${task.done ? 'muted line-through' : 'ink'}`}>{task.label}</span>
@@ -91,7 +79,7 @@ export default function TidyTab({
           ))}
         </div>
         {editingWeekly && (
-          <button onClick={addWeeklyTask} className="mt-3 font-display rose-deep text-[10px] tracking-[0.18em] uppercase" style={{ fontWeight: 500 }}>
+          <button onClick={() => weeklyHook.add()} className="mt-3 font-display rose-deep text-[10px] tracking-[0.18em] uppercase" style={{ fontWeight: 500 }}>
             + Add to the week
           </button>
         )}

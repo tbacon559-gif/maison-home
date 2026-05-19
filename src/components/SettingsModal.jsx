@@ -1,15 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import AccountSettings from './AccountSettings.jsx';
 
-export default function SettingsModal({ open, onClose, settings, onSave, onClearAll }) {
-  const [calendarUrl, setCalendarUrl] = useState(settings.calendarUrl || '');
+export default function SettingsModal({ open, onClose, profile, profileHook }) {
+  const [calendarUrl, setCalendarUrl] = useState(profile?.calendar_url || '');
   const [showHelp, setShowHelp] = useState(false);
-  const [showDanger, setShowDanger] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setCalendarUrl(profile?.calendar_url || '');
+  }, [profile?.calendar_url, open]);
 
   if (!open) return null;
 
-  const handleSave = () => {
-    onSave({ ...settings, calendarUrl: calendarUrl.trim() });
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await profileHook.update({ calendar_url: calendarUrl.trim() || null });
+      onClose();
+    } catch (err) {
+      console.error('Settings save failed', err);
+      setSaving(false);
+    }
   };
 
   return (
@@ -56,28 +67,8 @@ export default function SettingsModal({ open, onClose, settings, onSave, onClear
             )}
           </div>
 
-          <div className="mb-4 pt-4 border-t hairline">
-            <button onClick={() => setShowDanger((v) => !v)}
-              className="font-display rose text-[10px] tracking-[0.18em] uppercase" style={{ fontWeight: 500 }}>
-              {showDanger ? '− Hide' : '⚠ Reset everything'}
-            </button>
-            {showDanger && (
-              <div className="mt-3">
-                <p className="muted text-[12px] font-body mb-3 leading-relaxed">
-                  Removes all tasks, meals, events, sitter info, moments, and photos from this device. This cannot be undone.
-                </p>
-                <button onClick={() => {
-                  if (confirm('Really clear everything? This cannot be undone.')) {
-                    onClearAll();
-                    onClose();
-                  }
-                }}
-                  className="font-display text-[11px] tracking-[0.2em] uppercase nav-btn"
-                  style={{ fontWeight: 500, color: '#A8443A', padding: '6px 14px', border: '1px solid rgba(168,68,58,0.4)', borderRadius: '999px' }}>
-                  Clear all data
-                </button>
-              </div>
-            )}
+          <div className="pt-6 border-t hairline">
+            <AccountSettings />
           </div>
         </div>
 
@@ -85,10 +76,10 @@ export default function SettingsModal({ open, onClose, settings, onSave, onClear
           <button onClick={onClose} className="muted text-[11px] tracking-[0.2em] uppercase font-display nav-btn" style={{ fontWeight: 500 }}>
             Cancel
           </button>
-          <button onClick={handleSave}
+          <button onClick={handleSave} disabled={saving}
             className="font-display rose-deep text-[11px] tracking-[0.22em] uppercase nav-btn"
-            style={{ fontWeight: 500, padding: '8px 18px', border: '1px solid rgba(139,90,79,0.4)', borderRadius: '999px' }}>
-            Save →
+            style={{ fontWeight: 500, padding: '8px 18px', border: '1px solid rgba(139,90,79,0.4)', borderRadius: '999px', opacity: saving ? 0.5 : 1 }}>
+            {saving ? '…' : 'Save →'}
           </button>
         </div>
       </div>

@@ -19,12 +19,15 @@ import {
   resetDaily, resetWeekly, shouldResetDaily, shouldResetWeekly,
 } from './lib/rollover.js';
 
+import { essayOfWeek } from './data/keep.js';
 import { Checkbox, EditToggle, SectionHead, Styles } from './components/Components.jsx';
 import WelcomeOverlay from './components/WelcomeOverlay.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import SitterCardModal from './components/SitterCardModal.jsx';
 import TidyTab from './components/TidyTab.jsx';
 import KitchenTab from './components/KitchenTab.jsx';
+import KeepCallout from './components/KeepCallout.jsx';
+import KeepReader from './components/KeepReader.jsx';
 
 function usePersistedState(key, initial) {
   const [value, setValue] = useState(() => lsGet(key, initial));
@@ -64,6 +67,8 @@ export default function App() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showSitterCard, setShowSitterCard] = useState(false);
+  const [keepReaderOpen, setKeepReaderOpen] = useState(false);
+  const currentEssay = essayOfWeek();
 
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarStatus, setCalendarStatus] = useState('idle');
@@ -281,6 +286,11 @@ export default function App() {
           household={household}
           sitterNotes={sitterNotes}
         />
+        <KeepReader
+          open={keepReaderOpen}
+          essay={currentEssay}
+          onClose={() => setKeepReaderOpen(false)}
+        />
 
         {/* HEADER */}
         {activeNav === 'Today' ? (
@@ -405,6 +415,8 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              <KeepCallout essay={currentEssay} onOpen={() => setKeepReaderOpen(true)} />
 
               {/* Today's Work */}
               <div className="mx-7 mb-8 mt-2 pt-5 border-t hairline fade-in">

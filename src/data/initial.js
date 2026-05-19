@@ -30,18 +30,6 @@ export const INITIAL_WEEKLY = [
   { id: 7, label: 'Clean out fridge', done: false },
 ];
 
-// ─── Streak settings ─────────────────────────────────────────────
-export const STREAK_THRESHOLD = 0.8;
-export const GRACE_PER_MONTH = 2;
-
-export const INITIAL_STREAK = {
-  current: 0,
-  best: 0,
-  lastCheckedDate: null,
-  graceUsedThisMonth: 0,
-  graceMonth: null,
-};
-
 // ─── Meals ────────────────────────────────────────────────────────
 export const WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const FULL_DAY = {

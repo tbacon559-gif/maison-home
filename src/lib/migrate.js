@@ -182,7 +182,9 @@ export async function importLocalData(userId, encryptionKey) {
     const rows = [];
     for (let i = 0; i < notes.length; i++) {
       const n = notes[i];
-      const cipher = await encryptText(encryptionKey, n.text || '');
+      const cipher = encryptionKey
+        ? await encryptText(encryptionKey, n.text || '')
+        : (n.text || '');
       rows.push({
         user_id: userId, position: i, text_encrypted: cipher, done: !!n.done,
       });
@@ -196,17 +198,21 @@ export async function importLocalData(userId, encryptionKey) {
   for (let i = 0; i < moments.length; i++) {
     const m = moments[i];
     const newId = crypto.randomUUID();
-    const captionCipher = await encryptText(encryptionKey, m.text || '');
+    const captionCipher = encryptionKey
+      ? await encryptText(encryptionKey, m.text || '')
+      : (m.text || '');
     let photoPath = null;
 
     if (m.photoId) {
       const dataUrl = await getLegacyPhoto(m.photoId);
       if (dataUrl) {
         const buffer = dataUrlToArrayBuffer(dataUrl);
-        const encrypted = await encryptBlob(encryptionKey, buffer);
+        const stored = encryptionKey
+          ? await encryptBlob(encryptionKey, buffer)
+          : buffer;
         photoPath = `${userId}/${newId}.bin`;
         const { error: upErr } = await supabase.storage
-          .from('moments').upload(photoPath, new Blob([encrypted]));
+          .from('moments').upload(photoPath, new Blob([stored]));
         if (upErr) throw new Error(`moments storage (${m.photoId}): ${upErr.message}`);
       }
     }

@@ -1,4 +1,9 @@
-// ─── useMoments — photo journal with E2E encryption ───────────────
+// ─── useMoments — photo journal ────────────────────────────────────
+// When encryptionKey is present (email+password users), caption + photo
+// blob are E2E encrypted. When null (anonymous users from the V1 pivot),
+// both are stored plaintext under RLS. Column and storage path names
+// stay stable so an anonymous user can upgrade to email later without
+// schema migration.
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase.js';
@@ -8,7 +13,9 @@ import { photoCache } from '../lib/photoCache.js';
 import { encryptText, decryptText, encryptBlob, decryptBlob } from '../lib/crypto.js';
 
 async function decryptCaptions(rows, key) {
-  if (!key) return rows.map((r) => ({ ...r, text: '' }));
+  if (!key) {
+    return rows.map((r) => ({ ...r, text: r.caption_encrypted || '' }));
+  }
   const out = [];
   for (const r of rows) {
     try {
@@ -21,13 +28,28 @@ async function decryptCaptions(rows, key) {
   return out;
 }
 
+async function maybeEncryptText(key, plaintext) {
+  if (!key) return plaintext;
+  return encryptText(key, plaintext);
+}
+
+async function maybeEncryptBlob(key, buffer) {
+  if (!key) return buffer;
+  return encryptBlob(key, buffer);
+}
+
+async function maybeDecryptBlob(key, buffer) {
+  if (!key) return buffer;
+  return decryptBlob(key, buffer);
+}
+
 export function useMoments() {
   const { userId, encryptionKey } = useAuth();
   const [moments, setMoments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!userId || !encryptionKey) return;
+    if (!userId) return;
     let active = true;
     (async () => {
       const cached = await cache.read('moments', userId);
@@ -50,20 +72,18 @@ export function useMoments() {
   }, [userId, encryptionKey]);
 
   const add = useCallback(async ({ dateLabel, caption, photoArrayBuffer }) => {
-    if (!encryptionKey) throw new Error('no key');
-    const captionCipher = await encryptText(encryptionKey, caption || '');
+    const captionStored = await maybeEncryptText(encryptionKey, caption || '');
 
-    // Generate the moment id client-side so we can use it in the Storage path.
     const id = crypto.randomUUID();
     let photoPath = null;
 
     if (photoArrayBuffer) {
-      const encrypted = await encryptBlob(encryptionKey, photoArrayBuffer);
+      const blobBytes = await maybeEncryptBlob(encryptionKey, photoArrayBuffer);
       photoPath = `${userId}/${id}.bin`;
       const { error: upErr } = await supabase.storage
-        .from('moments').upload(photoPath, new Blob([encrypted]));
+        .from('moments').upload(photoPath, new Blob([blobBytes]));
       if (upErr) throw upErr;
-      // Cache the decrypted bytes so the just-uploaded photo renders without a refetch.
+      // Cache the raw (decrypted) bytes so the just-uploaded photo renders without a refetch.
       await photoCache.put(userId, id, photoArrayBuffer);
     }
 
@@ -72,7 +92,7 @@ export function useMoments() {
         id,
         user_id: userId,
         date_label: dateLabel || '',
-        caption_encrypted: captionCipher,
+        caption_encrypted: captionStored,
         photo_storage_path: photoPath,
       }).select().single();
     if (error) throw error;
@@ -91,7 +111,6 @@ export function useMoments() {
   }, [moments]);
 
   const getPhoto = useCallback(async (momentId) => {
-    if (!encryptionKey) return null;
     const cached = await photoCache.getPhoto(userId, momentId);
     if (cached) return cached;
     const moment = moments.find((m) => m.id === momentId);
@@ -99,8 +118,8 @@ export function useMoments() {
     const { data, error } = await supabase.storage
       .from('moments').download(moment.photo_storage_path);
     if (error || !data) return null;
-    const encrypted = await data.arrayBuffer();
-    const decrypted = await decryptBlob(encryptionKey, encrypted);
+    const stored = await data.arrayBuffer();
+    const decrypted = await maybeDecryptBlob(encryptionKey, stored);
     await photoCache.put(userId, momentId, decrypted);
     return decrypted;
   }, [moments, userId, encryptionKey]);

@@ -30,9 +30,6 @@ import KitchenTab from './components/KitchenTab.jsx';
 import SeventhDay from './components/SeventhDay.jsx';
 import KeepCallout from './components/KeepCallout.jsx';
 import KeepReader from './components/KeepReader.jsx';
-import SigninScreen from './components/SigninScreen.jsx';
-import SignupScreen from './components/SignupScreen.jsx';
-import PasswordResetScreen from './components/PasswordResetScreen.jsx';
 import OnboardingFlow from './components/OnboardingFlow.jsx';
 import ReviewPendingScreen from './components/ReviewPendingScreen.jsx';
 import TrialEndedBanner from './components/TrialEndedBanner.jsx';
@@ -54,7 +51,6 @@ function arrayBufferToBase64(buf) {
 
 export default function App() {
   const { status, effectiveStatus } = useAuth();
-  const [authView, setAuthView] = useState('signin'); // signin | signup | reset
 
   return (
     <div className="min-h-screen w-full flex items-start justify-center py-6 px-4"
@@ -72,14 +68,11 @@ export default function App() {
           </div>
         )}
 
-        {status === 'signed_out' && authView === 'signin' && (
-          <SigninScreen onShowSignup={() => setAuthView('signup')} onShowReset={() => setAuthView('reset')} />
-        )}
-        {status === 'signed_out' && authView === 'signup' && (
-          <SignupScreen onBackToSignin={() => setAuthView('signin')} />
-        )}
-        {status === 'signed_out' && authView === 'reset' && (
-          <PasswordResetScreen onBack={() => setAuthView('signin')} />
+        {status === 'signed_out' && (
+          <div className="flex-1 flex flex-col items-center justify-center px-7 text-center">
+            <p className="font-display ink text-[15px] italic mb-4">Something went wrong opening the app.</p>
+            <p className="muted text-[12px] font-body italic font-display">Reload to try again.</p>
+          </div>
         )}
 
         {status === 'onboarding' && <PostSignupRouter />}
@@ -105,7 +98,7 @@ function PostSignupRouter() {
 
   useEffect(() => {
     if (decided) return;
-    if (!userId || !encryptionKey) return;
+    if (!userId) return; // encryptionKey is null for anonymous users — that's fine
     if (hasLocalData()) {
       setImporting(true);
       setDecided(true);

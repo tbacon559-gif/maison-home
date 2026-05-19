@@ -1,16 +1,16 @@
-// ─── Auth provider — session + encryption key + status routing ────
-// Wraps the entire app. Components access via useAuth(). The status
-// string drives top-level routing in App.jsx.
+// ─── Auth provider — session + status routing ─────────────────────
+// V1 pivot (2026-05-19): app auto-signs-in anonymous users. No signup
+// screen. Encryption is no-op for anonymous users (notes/captions/
+// photos stored plaintext under RLS). E2E re-enables later when an
+// anonymous user upgrades to an email+password account.
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase.js';
-import { deriveKey, generateSalt } from './crypto.js';
+import { generateSalt } from './crypto.js';
 import { cache } from './cache.js';
 import { photoCache } from './photoCache.js';
 
 const AuthContext = createContext(null);
-
-const TRIAL_DAYS = 14;
 
 function computeEffectiveStatus(profile) {
   if (!profile) return null;
@@ -29,27 +29,30 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [encryptionKey, setEncryptionKey] = useState(null);
   const [status, setStatus] = useState('loading');
-  const [pendingPassword, setPendingPassword] = useState(null); // held across signup-then-sign-in
 
-  // Bootstrap on mount: check for existing session
+  // Bootstrap: re-use existing session or auto-anonymous-signin.
   useEffect(() => {
     let active = true;
     (async () => {
       const { data: { session: existing } } = await supabase.auth.getSession();
       if (!active) return;
-      setSession(existing);
-      if (!existing) {
-        setStatus('signed_out');
-      } else {
-        // Existing session — but we don't have the password, so we can't
-        // re-derive the encryption key. User must sign in again to read
-        // E2E content. Treat as signed_out for app-level gating, but keep
-        // the session alive so the next signin is one tap.
-        // (Future enhancement: prompt for password to "unlock" content.)
-        setStatus('signed_out');
+      if (existing) {
+        setSession(existing);
+        await loadOrInitProfile(existing.user.id);
+        return;
       }
+      const { data, error } = await supabase.auth.signInAnonymously();
+      if (!active) return;
+      if (error || !data?.session) {
+        console.error('Anonymous signin failed', error);
+        setStatus('signed_out');
+        return;
+      }
+      setSession(data.session);
+      await loadOrInitProfile(data.session.user.id);
     })();
     return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Watch for auth state changes
@@ -60,62 +63,35 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Helper: fetch profile, derive key, route
-  const completeSignin = useCallback(async (password) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setStatus('signed_out');
+  // Load profile if it exists, otherwise create one and seed defaults.
+  // Anonymous users: no trial_ends_at (so the trial-ended banner never fires).
+  const loadOrInitProfile = useCallback(async (userId) => {
+    const { data: existing, error: getErr } = await supabase
+      .from('profiles').select('*').eq('id', userId).maybeSingle();
+    if (!getErr && existing) {
+      setProfile(existing);
+      setStatus(existing.greeting_name ? 'authenticated' : 'onboarding');
       return;
     }
-    const { data: prof, error } = await supabase
-      .from('profiles').select('*').eq('id', user.id).single();
-    if (error || !prof) {
-      setStatus('signed_out');
-      return;
-    }
-    setProfile(prof);
-    const key = await deriveKey(password, prof.encryption_salt);
-    setEncryptionKey(key);
-    setStatus('authenticated');
-  }, []);
-
-  const signIn = useCallback(async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    setSession(data.session);
-    await completeSignin(password);
-  }, [completeSignin]);
-
-  const signUp = useCallback(async (email, password) => {
-    // Create auth user
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
-    if (!data.user) throw new Error('Signup did not return a user');
-
-    // Create profile row with salt + trial window
     const salt = generateSalt();
-    const trialEnds = new Date();
-    trialEnds.setDate(trialEnds.getDate() + TRIAL_DAYS);
-    const { error: profileErr } = await supabase.from('profiles').insert({
-      id: data.user.id,
+    const { data: newProf, error: insErr } = await supabase.from('profiles').insert({
+      id: userId,
       subscription_status: 'trialing',
-      trial_ends_at: trialEnds.toISOString(),
+      trial_ends_at: null, // anonymous users: trial never expires by date
       encryption_salt: salt,
       is_founding_member: false,
-    });
-    if (profileErr) throw profileErr;
-
-    // Run seed function
-    await supabase.rpc('seed_new_user', { target_user: data.user.id });
-
-    // Derive key and route to onboarding (consumer decides between onboarding vs. import)
-    const key = await deriveKey(password, salt);
-    setEncryptionKey(key);
-    setSession(data.session);
-    // Fetch the profile we just inserted
-    const { data: prof } = await supabase
-      .from('profiles').select('*').eq('id', data.user.id).single();
-    setProfile(prof);
+    }).select().single();
+    if (insErr) {
+      console.error('Profile create failed', insErr);
+      setStatus('signed_out');
+      return;
+    }
+    const { error: seedErr } = await supabase.rpc('seed_new_user', { target_user: userId });
+    if (seedErr) {
+      console.error('Seed function failed', seedErr);
+      // Profile exists; seed failed. Don't block — they can still proceed but with empty lists.
+    }
+    setProfile(newProf);
     setStatus('onboarding');
   }, []);
 
@@ -129,37 +105,7 @@ export function AuthProvider({ children }) {
     setStatus('signed_out');
   }, []);
 
-  const requestHardship = useCallback(async (email, reason) => {
-    // Create auth user with random placeholder password (the user resets later via email link).
-    const placeholderPw = crypto.randomUUID() + crypto.randomUUID();
-    const { data, error } = await supabase.auth.signUp({ email, password: placeholderPw });
-    if (error) throw error;
-    if (!data.user) throw new Error('Signup did not return a user');
-
-    const salt = generateSalt();
-    await supabase.from('profiles').insert({
-      id: data.user.id,
-      subscription_status: 'hardship_pending',
-      encryption_salt: salt,
-      is_founding_member: false,
-    });
-    await supabase.from('hardship_requests').insert({
-      user_id: data.user.id,
-      email,
-      reason: reason || null,
-    });
-    await supabase.auth.signOut(); // don't auto-sign-in pending users
-  }, []);
-
-  const resetPassword = useCallback(async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/?reset=1`,
-    });
-    if (error) throw error;
-  }, []);
-
   const deleteAccount = useCallback(async () => {
-    // Clear Storage first (server function doesn't reach Storage).
     if (session?.user?.id) {
       const { data: files } = await supabase.storage
         .from('moments').list(session.user.id);
@@ -178,7 +124,6 @@ export function AuthProvider({ children }) {
     setStatus('signed_out');
   }, [session]);
 
-  // Allow onboarding to advance status
   const finishOnboarding = useCallback(() => setStatus('authenticated'), []);
 
   const value = {
@@ -186,16 +131,12 @@ export function AuthProvider({ children }) {
     userId: session?.user?.id ?? null,
     profile,
     effectiveStatus: computeEffectiveStatus(profile),
-    encryptionKey,
+    encryptionKey, // always null for anonymous users — useNotes/useMoments handle this
     status,
-    signIn,
-    signUp,
     signOut,
-    requestHardship,
-    resetPassword,
     deleteAccount,
     finishOnboarding,
-    setProfile, // exposed so useProfile can update parent state after a profile mutation
+    setProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

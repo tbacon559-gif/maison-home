@@ -16,7 +16,7 @@ import { lsGet, lsSet, photoSave, photoGet, photoDelete } from './lib/storage.js
 import { upcomingEvents } from './lib/ics.js';
 import { buildMomentSVG, getImageDims, shareOrDownload } from './lib/svg.js';
 import {
-  resetDaily, resetWeekly, shouldResetDaily, shouldResetWeekly,
+  resetDaily, resetWeekly, shouldResetDaily, shouldResetWeekly, isSeventhDay,
 } from './lib/rollover.js';
 
 import { essayOfWeek } from './data/keep.js';
@@ -28,6 +28,7 @@ import TidyTab from './components/TidyTab.jsx';
 import KitchenTab from './components/KitchenTab.jsx';
 import KeepCallout from './components/KeepCallout.jsx';
 import KeepReader from './components/KeepReader.jsx';
+import SeventhDay from './components/SeventhDay.jsx';
 
 function usePersistedState(key, initial) {
   const [value, setValue] = useState(() => lsGet(key, initial));
@@ -317,7 +318,9 @@ export default function App() {
         <div className="scroll-area overflow-y-auto flex-1 pb-2" key={activeNav}>
 
           {/* TODAY */}
-          {activeNav === 'Today' && (
+          {activeNav === 'Today' && (isSeventhDay() ? (
+            <SeventhDay moments={moments} photoCache={photoCache} />
+          ) : (
             <>
               <div className="px-7 pt-7 pb-5 fade-in">
                 <h1 className="font-display ink" style={{ fontWeight: 400, fontSize: '34px', lineHeight: 1.1 }}>
@@ -426,7 +429,7 @@ export default function App() {
                 </p>
               </div>
             </>
-          )}
+          ))}
 
           {/* TIDY */}
           {activeNav === 'Tidy' && (

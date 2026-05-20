@@ -162,7 +162,7 @@ function MainApp() {
   const [editingNotes, setEditingNotes] = useState(false);
   const [editingDaily, setEditingDaily] = useState(false);
   const [editingWeekly, setEditingWeekly] = useState(false);
-  const [editingDay, setEditingDay] = useState(null);
+  const [editingMeals, setEditingMeals] = useState(false);
   const [editingGroceries, setEditingGroceries] = useState(false);
   const [editingToBuy, setEditingToBuy] = useState(false);
   const [editingGirl, setEditingGirl] = useState(null);
@@ -508,7 +508,7 @@ function MainApp() {
             mealsHook={mealsHook}
             groceriesHook={groceriesHook}
             toBuyHook={toBuyHook}
-            editingDay={editingDay} setEditingDay={setEditingDay}
+            editingMeals={editingMeals} setEditingMeals={setEditingMeals}
             editingGroceries={editingGroceries} setEditingGroceries={setEditingGroceries}
             editingToBuy={editingToBuy} setEditingToBuy={setEditingToBuy}
           />

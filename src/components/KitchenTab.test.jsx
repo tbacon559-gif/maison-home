@@ -33,7 +33,7 @@ describe('KitchenTab', () => {
         mealsHook={makeMealsHook(emptyMeals)}
         groceriesHook={makeListHook()}
         toBuyHook={makeListHook()}
-        editingDay={null} setEditingDay={() => {}}
+        editingMeals={false} setEditingMeals={() => {}}
         editingGroceries={false} setEditingGroceries={() => {}}
         editingToBuy={false} setEditingToBuy={() => {}}
       />
@@ -53,7 +53,7 @@ describe('KitchenTab', () => {
         mealsHook={makeMealsHook(emptyMeals)}
         groceriesHook={groceriesHook}
         toBuyHook={makeListHook()}
-        editingDay={null} setEditingDay={() => {}}
+        editingMeals={false} setEditingMeals={() => {}}
         editingGroceries={false} setEditingGroceries={() => {}}
         editingToBuy={false} setEditingToBuy={() => {}}
       />
@@ -67,7 +67,7 @@ describe('KitchenTab', () => {
         mealsHook={makeMealsHook(emptyMeals)}
         groceriesHook={makeListHook()}
         toBuyHook={makeListHook()}
-        editingDay={null} setEditingDay={() => {}}
+        editingMeals={false} setEditingMeals={() => {}}
         editingGroceries={false} setEditingGroceries={() => {}}
         editingToBuy={false} setEditingToBuy={() => {}}
       />

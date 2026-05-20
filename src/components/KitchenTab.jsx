@@ -6,12 +6,11 @@ export default function KitchenTab({
   mealsHook,
   groceriesHook,
   toBuyHook,
-  editingDay, setEditingDay,
+  editingMeals, setEditingMeals,
   editingGroceries, setEditingGroceries,
   editingToBuy, setEditingToBuy,
 }) {
-  const [openList, setOpenList] = useState('meals');
-  const [expandedDay, setExpandedDay] = useState(null);
+  const [openList, setOpenList] = useState(null);
 
   const meals = mealsHook.meals;
   const groceries = groceriesHook.items;
@@ -23,51 +22,47 @@ export default function KitchenTab({
         Feeding people. Lists for the week.
       </p>
 
-      <div className="space-y-3">
-        {/* Meals */}
-        <Dropdown
-          open={openList === 'meals'}
-          onToggle={() => setOpenList(openList === 'meals' ? null : 'meals')}
-          label="Meals"
-          hint="who's home for dinner?">
+      {/* Meals — all seven days at once */}
+      <div className="mb-6">
+        <div className="flex items-baseline justify-between px-2 mb-3">
           <div>
-            {WEEK.map((d, i) => {
-              const isOpen = expandedDay === d;
-              const isEditing = editingDay === d;
-              const m = meals[d] || { L: '', D: '' };
-              return (
-                <div key={d} className={i === 0 ? '' : 'border-t hairline'}>
-                  <button onClick={() => setExpandedDay(isOpen ? null : d)}
-                    className="w-full flex items-center justify-between py-3 text-left">
-                    <span className="font-display ink" style={{ fontWeight: 400, fontSize: '14px' }}>{FULL_DAY[d]}</span>
-                    <span className="rose text-[12px]" style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.25s', display: 'inline-block' }}>→</span>
-                  </button>
-                  {isOpen && (
-                    <div className="pb-3 pt-1">
-                      <div className="flex justify-end mb-2">
-                        <EditToggle editing={isEditing} onClick={() => setEditingDay(isEditing ? null : d)} />
-                      </div>
-                      <div className="space-y-2.5">
-                        {[['Lunch', 'L'], ['Dinner', 'D']].map(([k, slot]) => (
-                          <div key={slot} className="flex items-baseline gap-4">
-                            <span className="font-display rose uppercase tracking-[0.18em] w-[48px] text-[10px]" style={{ fontWeight: 500 }}>{k}</span>
-                            {isEditing ? (
-                              <input className="edit-input ink text-[13px] font-body flex-1"
-                                value={m[slot] || ''} onChange={(e) => mealsHook.setMeal(d, slot, e.target.value)} />
-                            ) : (
-                              <span className="ink text-[13px] font-body">{m[slot]}</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <div className="font-display ink" style={{ fontWeight: 400, fontSize: '20px' }}>Meals</div>
+            <div className="muted text-[10px] tracking-[0.18em] uppercase font-body mt-1">the week ahead</div>
           </div>
-        </Dropdown>
+          <EditToggle editing={!!editingMeals} onClick={() => setEditingMeals(!editingMeals)} />
+        </div>
+        <div className="space-y-2">
+          {WEEK.map((d) => {
+            const m = meals[d] || { L: '', D: '' };
+            return (
+              <div key={d} className="cream-card rounded-2xl border-soft px-5 py-4">
+                <div className="font-display rose text-[10px] tracking-[0.22em] uppercase mb-2" style={{ fontWeight: 500 }}>
+                  {FULL_DAY[d]}
+                </div>
+                <div className="space-y-1.5">
+                  {[['Lunch', 'L'], ['Dinner', 'D']].map(([k, slot]) => (
+                    <div key={slot} className="flex items-baseline gap-3">
+                      <span className="muted text-[10px] tracking-[0.16em] uppercase font-body w-[44px] shrink-0">{k}</span>
+                      {editingMeals ? (
+                        <input className="edit-input ink text-[13px] font-body flex-1"
+                          value={m[slot] || ''}
+                          onChange={(e) => mealsHook.setMeal(d, slot, e.target.value)}
+                          placeholder="—" />
+                      ) : (
+                        <span className="ink text-[13px] font-body">
+                          {m[slot] || <span className="muted">—</span>}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
+      <div className="space-y-3">
         {/* Grocery */}
         <Dropdown
           open={openList === 'grocery'}

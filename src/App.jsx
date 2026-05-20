@@ -363,8 +363,7 @@ function MainApp() {
       ) : (
         <div key={`h-${activeNav}`} className="pt-5 pb-4 px-7 fade-in flex items-baseline justify-between">
           <h2 className="font-display ink" style={{ fontWeight: 400, fontSize: '24px' }}>
-            {activeNav === 'Girls' ? 'The Girls' :
-             activeNav === 'Tidy'  ? 'The Keeping' : activeNav}
+            {activeNav === 'Girls' ? 'The Girls' : activeNav}
           </h2>
           <span className="font-display rose text-[10px] tracking-[0.32em]" style={{ fontWeight: 400 }}>MAISON</span>
         </div>
@@ -503,8 +502,8 @@ function MainApp() {
           />
         )}
 
-        {/* KITCHEN */}
-        {activeNav === 'Kitchen' && (
+        {/* NOURISH */}
+        {activeNav === 'Nourish' && (
           <KitchenTab
             mealsHook={mealsHook}
             groceriesHook={groceriesHook}
@@ -738,8 +737,8 @@ function MainApp() {
         <div className="flex justify-around items-center">
           {[
             { id: 'Today', label: 'Today' },
-            { id: 'Tidy', label: 'The Keeping' },
-            { id: 'Kitchen', label: 'Kitchen' },
+            { id: 'Tidy', label: 'Tidy' },
+            { id: 'Nourish', label: 'Nourish' },
             { id: 'Girls', label: 'Girls' },
             { id: 'Moments', label: 'Moments' },
           ].map(({ id, label }) => {

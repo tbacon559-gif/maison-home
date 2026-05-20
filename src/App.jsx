@@ -164,6 +164,7 @@ function MainApp() {
   const [editingGroceries, setEditingGroceries] = useState(false);
   const [editingToBuy, setEditingToBuy] = useState(false);
   const [editingGirl, setEditingGirl] = useState(null);
+  const [confirmDeleteGirl, setConfirmDeleteGirl] = useState(null);
   const [editingHousehold, setEditingHousehold] = useState(false);
   const [editingSitter, setEditingSitter] = useState(false);
 
@@ -478,7 +479,10 @@ function MainApp() {
                           <div className="muted text-[11px] tracking-[0.16em] uppercase font-body mt-0.5">{age}</div>
                         </div>
                       </div>
-                      <EditToggle editing={isEditing} onClick={() => setEditingGirl(isEditing ? null : g.id)} />
+                      <EditToggle editing={isEditing} onClick={() => {
+                        setEditingGirl(isEditing ? null : g.id);
+                        setConfirmDeleteGirl(null);
+                      }} />
                     </div>
 
                     {next && next.days <= 90 && !isEditing && (
@@ -514,6 +518,40 @@ function MainApp() {
                         </div>
                       ))}
                     </div>
+
+                    {isEditing && (
+                      <div className="mt-4 pt-4 border-t hairline">
+                        {confirmDeleteGirl === g.id ? (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="muted text-[11px] font-body italic">
+                              Remove {g.name || 'this child'}?
+                            </span>
+                            <div className="flex items-center gap-3">
+                              <button onClick={() => setConfirmDeleteGirl(null)}
+                                className="font-display muted text-[10px] tracking-[0.22em] uppercase">
+                                Cancel
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  setConfirmDeleteGirl(null);
+                                  setEditingGirl(null);
+                                  await kidsHook.remove(g.id);
+                                }}
+                                className="font-display rose-deep text-[10px] tracking-[0.22em] uppercase"
+                                style={{ fontWeight: 500 }}>
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button onClick={() => setConfirmDeleteGirl(g.id)}
+                            className="font-display rose-deep text-[10px] tracking-[0.22em] uppercase"
+                            style={{ fontWeight: 500 }}>
+                            Remove this child
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -24,7 +24,7 @@ export function useShareLinks() {
         .from('share_links')
         .select('*')
         .eq('owner_id', userId)
-        .order('created_at');
+        .order('created_at', { ascending: false });
       if (active && data) setLinks(data);
       if (active) setLoading(false);
     })();

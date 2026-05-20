@@ -11,6 +11,7 @@ import { supabase } from '../lib/supabase.js';
 
 // Mutable in-memory rows the mock reads/writes against
 let rows;
+let failNextUpdate;
 
 function makeSupabaseMock() {
   return {
@@ -20,11 +21,16 @@ function makeSupabaseMock() {
         _filter: {},
         select() { return this; },
         eq(col, val) { this._filter[col] = val; return this; },
-        order() {
+        order(col, opts) {
+          const asc = opts?.ascending !== false;
           let out = rows.filter((r) => {
             return Object.entries(this._filter).every(([k, v]) => r[k] === v);
           });
-          out = [...out].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+          out = [...out].sort((a, b) => {
+            if (a[col] < b[col]) return asc ? -1 : 1;
+            if (a[col] > b[col]) return asc ? 1 : -1;
+            return 0;
+          });
           return Promise.resolve({ data: out, error: null });
         },
         insert(row) {
@@ -40,6 +46,10 @@ function makeSupabaseMock() {
             _filter: {},
             eq(col, val) { this._filter[col] = val; return this; },
             then(resolve) {
+              if (failNextUpdate) {
+                resolve({ data: null, error: new Error('update failed') });
+                return;
+              }
               for (const r of rows) {
                 if (Object.entries(this._filter).every(([k, v]) => r[k] === v)) {
                   Object.assign(r, patch);
@@ -55,7 +65,7 @@ function makeSupabaseMock() {
   };
 }
 
-beforeEach(() => { rows = []; });
+beforeEach(() => { rows = []; failNextUpdate = false; });
 
 describe('useShareLinks', () => {
   it('loads empty list initially', async () => {
@@ -117,5 +127,32 @@ describe('useShareLinks', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.links).toHaveLength(1);
     expect(result.current.active).toHaveLength(0);
+  });
+
+  it('loads existing rows newest-first', async () => {
+    const future = new Date(Date.now() + 1e7).toISOString();
+    rows.push(
+      { token: 'OLD', owner_id: 'u1', kind: 'sitter', tonight_plan: '',
+        created_at: '2026-01-01T00:00:00.000Z', expires_at: future, revoked_at: null },
+      { token: 'NEW', owner_id: 'u1', kind: 'sitter', tonight_plan: '',
+        created_at: '2026-02-01T00:00:00.000Z', expires_at: future, revoked_at: null },
+    );
+    const { result } = renderHook(() => useShareLinks());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.links.map((l) => l.token)).toEqual(['NEW', 'OLD']);
+  });
+
+  it('revoke() throws and leaves links unchanged when the update errors', async () => {
+    const { result } = renderHook(() => useShareLinks());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => { await result.current.create('plan'); });
+    expect(result.current.active).toHaveLength(1);
+
+    failNextUpdate = true;
+    await act(async () => {
+      await expect(result.current.revoke('TOKEN_X')).rejects.toThrow('update failed');
+    });
+    expect(result.current.links[0].revoked_at).toBeFalsy();
+    expect(result.current.active).toHaveLength(1);
   });
 });

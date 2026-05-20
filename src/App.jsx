@@ -25,6 +25,8 @@ import SettingsModal from './components/SettingsModal.jsx';
 import SitterCardModal from './components/SitterCardModal.jsx';
 import SitterShareModal from './components/SitterShareModal.jsx';
 import { useShareLinks } from './hooks/useShareLinks.js';
+import ThoughtsTab from './components/ThoughtsTab.jsx';
+import { useThoughtLists } from './hooks/useThoughtLists.js';
 import TidyTab from './components/TidyTab.jsx';
 import KitchenTab from './components/KitchenTab.jsx';
 import SeventhDay from './components/SeventhDay.jsx';
@@ -145,6 +147,7 @@ function MainApp() {
   const [showSettings, setShowSettings] = useState(false);
   const [showSitterCard, setShowSitterCard] = useState(false);
   const shareLinks = useShareLinks();
+  const thoughtListsHook = useThoughtLists();
   const [shareModal, setShareModal] = useState({ open: false, mode: 'create', editing: null });
   const [revokingToken, setRevokingToken] = useState(null);
   const [keepReaderOpen, setKeepReaderOpen] = useState(false);
@@ -441,6 +444,11 @@ function MainApp() {
           />
         )}
 
+        {/* THOUGHTS */}
+        {activeNav === 'Thoughts' && (
+          <ThoughtsTab listsHook={thoughtListsHook} />
+        )}
+
         {/* GIRLS */}
         {activeNav === 'Girls' && (
           <div className="pt-6 px-5 pb-8">
@@ -619,6 +627,7 @@ function MainApp() {
             { id: 'Today', label: 'Today' },
             { id: 'Tidy', label: 'Tidy' },
             { id: 'Nourish', label: 'Nourish' },
+            { id: 'Thoughts', label: 'Thoughts' },
             { id: 'Girls', label: 'Girls' },
           ].map(({ id, label }) => {
             const active = id === activeNav;

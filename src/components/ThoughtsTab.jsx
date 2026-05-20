@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Checkbox, EditToggle } from './Components.jsx';
 import { useThoughtItems } from '../hooks/useThoughtItems.js';
 
@@ -133,6 +133,12 @@ export default function ThoughtsTab({ listsHook }) {
 function ThoughtListCard({ list, mode, autoEdit, onRename, onArchive, onRestore, onDeleteList }) {
   const itemsHook = useThoughtItems(list.id);
   const [editing, setEditing] = useState(!!autoEdit);
+  // A freshly created list gets autoEdit a render after its card mounts
+  // (the parent sets justCreatedId after create() resolves), so the
+  // useState initializer alone misses it — catch the transition here.
+  useEffect(() => {
+    if (autoEdit) setEditing(true);
+  }, [autoEdit]);
   const [draftTitle, setDraftTitle] = useState(list.title);
   const [newItemText, setNewItemText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);

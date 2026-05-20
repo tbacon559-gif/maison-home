@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 import { useAuth } from './lib/auth.jsx';
 import { useProfile } from './hooks/useProfile.js';
@@ -9,14 +9,12 @@ import { useWeeklyTasks } from './hooks/useWeeklyTasks.js';
 import { useMeals } from './hooks/useMeals.js';
 import { useListItems } from './hooks/useListItems.js';
 import { useNotes } from './hooks/useNotes.js';
-import { useMoments } from './hooks/useMoments.js';
 
 import {
-  calcAge, nextBirthday, shortDate, todayLabel,
+  calcAge, nextBirthday, todayLabel,
   relativeLabel, timeLabel,
 } from './lib/dates.js';
 import { upcomingEvents } from './lib/ics.js';
-import { buildMomentSVG, getImageDims, shareOrDownload } from './lib/svg.js';
 import { shouldResetDaily, shouldResetWeekly, isSeventhDay } from './lib/rollover.js';
 import { essayOfWeek } from './data/keep.js';
 import { hasLocalData, importLocalData } from './lib/migrate.js';
@@ -42,13 +40,6 @@ function todaysWorkLine(hour = new Date().getHours()) {
   if (hour < 18) return 'An afternoon, kept as it is.';
   if (hour < 21) return 'An evening softening down.';
   return 'A late hour. Be kind to it.';
-}
-
-function arrayBufferToBase64(buf) {
-  const bytes = new Uint8Array(buf);
-  let bin = '';
-  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
 }
 
 export default function App() {
@@ -146,7 +137,6 @@ function MainApp() {
   const groceriesHook = useListItems('grocery');
   const toBuyHook = useListItems('tobuy');
   const notesHook = useNotes();
-  const momentsHook = useMoments();
 
   // Volatile UI state
   const [activeNav, setActiveNav] = useState('Today');
@@ -173,11 +163,6 @@ function MainApp() {
   const [editingGirl, setEditingGirl] = useState(null);
   const [editingHousehold, setEditingHousehold] = useState(false);
   const [editingSitter, setEditingSitter] = useState(false);
-
-  const [pendingPhotos, setPendingPhotos] = useState([]);
-  const fileInputRef = useRef(null);
-  const [shareMomentStatus, setShareMomentStatus] = useState({});
-  const [photoUrls, setPhotoUrls] = useState({}); // momentId -> object URL
 
   // Greeting based on time of day
   useEffect(() => {
@@ -233,108 +218,10 @@ function MainApp() {
 
   useEffect(() => { fetchCalendar(); }, [fetchCalendar]);
 
-  // Photo loading — fetch + decrypt for any moment with a photo path not yet cached
-  useEffect(() => {
-    const idsNeeded = momentsHook.moments
-      .filter((m) => m.photo_storage_path && !photoUrls[m.id])
-      .map((m) => m.id);
-    if (idsNeeded.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const updates = {};
-      for (const id of idsNeeded) {
-        try {
-          const buf = await momentsHook.getPhoto(id);
-          if (buf) {
-            const blob = new Blob([buf]);
-            updates[id] = URL.createObjectURL(blob);
-          }
-        } catch (err) { console.error('getPhoto failed', id, err); }
-      }
-      if (!cancelled && Object.keys(updates).length) {
-        setPhotoUrls((p) => ({ ...p, ...updates }));
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [momentsHook.moments]);
-
   const addNote = async () => {
     if (!newNote.trim()) return;
     await notesHook.add(newNote);
     setNewNote('');
-  };
-
-  // Photo flow — stage in memory, then save via useMoments.add
-  const onPhotoPick = async (e) => {
-    const files = Array.from(e.target.files || []);
-    const staged = await Promise.all(
-      files.map((f) => new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve({
-          tempId: Date.now() + Math.random(),
-          file: f,
-          dataUrl: reader.result,
-          date: shortDate(new Date(f.lastModified)),
-          caption: '',
-        });
-        reader.readAsDataURL(f);
-      }))
-    );
-    setPendingPhotos((p) => [...p, ...staged]);
-    e.target.value = '';
-  };
-
-  const updatePending = (id, field, val) =>
-    setPendingPhotos((p) => p.map((x) => (x.tempId === id ? { ...x, [field]: val } : x)));
-  const cancelPending = (id) => setPendingPhotos((p) => p.filter((x) => x.tempId !== id));
-
-  const saveAllPending = async () => {
-    for (const p of pendingPhotos) {
-      try {
-        const buf = await p.file.arrayBuffer();
-        await momentsHook.add({
-          dateLabel: p.date, caption: p.caption, photoArrayBuffer: buf,
-        });
-      } catch (err) {
-        console.error('save moment failed', err);
-      }
-    }
-    setPendingPhotos([]);
-  };
-
-  const deleteMomentLocal = async (m) => {
-    if (!confirm('Delete this moment?')) return;
-    if (photoUrls[m.id]) {
-      URL.revokeObjectURL(photoUrls[m.id]);
-      setPhotoUrls((p) => { const x = { ...p }; delete x[m.id]; return x; });
-    }
-    await momentsHook.remove(m.id);
-  };
-
-  const shareMoment = async (moment) => {
-    setShareMomentStatus((p) => ({ ...p, [moment.id]: 'sharing' }));
-    try {
-      let photoDataUrl = null;
-      if (moment.photo_storage_path) {
-        const buf = await momentsHook.getPhoto(moment.id);
-        if (buf) {
-          photoDataUrl = `data:image/jpeg;base64,${arrayBufferToBase64(buf)}`;
-        }
-      }
-      const dims = await getImageDims(photoDataUrl);
-      const svg = buildMomentSVG(
-        { ...moment, text: moment.text, date: moment.date_label },
-        photoDataUrl,
-        dims
-      );
-      const result = await shareOrDownload(svg, `moment-${moment.id}.png`, 'A moment from Maison');
-      setShareMomentStatus((p) => ({ ...p, [moment.id]: result === 'cancelled' ? '' : 'done' }));
-      setTimeout(() => setShareMomentStatus((p) => ({ ...p, [moment.id]: '' })), 1500);
-    } catch (err) {
-      console.error(err);
-      setShareMomentStatus((p) => ({ ...p, [moment.id]: 'error' }));
-      setTimeout(() => setShareMomentStatus((p) => ({ ...p, [moment.id]: '' })), 2000);
-    }
   };
 
   return (
@@ -420,10 +307,7 @@ function MainApp() {
 
         {/* TODAY */}
         {activeNav === 'Today' && (isSeventhDay() ? (
-          <SeventhDay
-            moments={momentsHook.moments.map((m) => ({ id: m.id, date: m.date_label, text: m.text, photoId: m.id }))}
-            photoCache={photoUrls}
-          />
+          <SeventhDay />
         ) : (
           <>
             <div className="px-7 pt-7 pb-5 fade-in">
@@ -726,89 +610,6 @@ function MainApp() {
             </div>
           </div>
         )}
-
-        {/* MOMENTS */}
-        {activeNav === 'Moments' && (
-          <div className="pt-6 px-5 pb-8">
-            <p className="muted text-[12px] font-body px-2 mb-5 leading-relaxed italic font-display">
-              The ordinary, before it goes.
-            </p>
-
-            <input ref={fileInputRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={onPhotoPick} />
-
-            <div className="flex gap-3 mb-6">
-              <button onClick={() => fileInputRef.current?.click()}
-                className="cream-card rounded-2xl px-5 py-4 border-soft flex-1 text-left flex items-center justify-between nav-btn">
-                <span className="font-display ink" style={{ fontSize: '14px' }}>Today's Photos</span>
-                <span className="rose text-[16px]">＋</span>
-              </button>
-            </div>
-
-            {pendingPhotos.length > 0 && (
-              <div className="cream-card rounded-2xl p-5 border-soft mb-6 fade-in">
-                <div className="muted text-[10px] tracking-[0.28em] uppercase font-body mb-4">A few words for each.</div>
-                <div className="space-y-5">
-                  {pendingPhotos.map((p) => (
-                    <div key={p.tempId} className="flex gap-3">
-                      <img src={p.dataUrl} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" style={{ border: '1px solid rgba(184,133,123,0.18)' }} />
-                      <div className="flex-1">
-                        <div className="font-display rose uppercase tracking-[0.2em] text-[9px] mb-1" style={{ fontWeight: 500 }}>{p.date}</div>
-                        <input className="edit-input ink text-[13px] font-body w-full"
-                          placeholder="What was this." value={p.caption}
-                          onChange={(e) => updatePending(p.tempId, 'caption', e.target.value)} />
-                      </div>
-                      <button onClick={() => cancelPending(p.tempId)} className="muted text-base self-start">×</button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-end mt-5">
-                  <button onClick={saveAllPending}
-                    className="font-display rose-deep text-[12px] tracking-[0.18em] uppercase nav-btn" style={{ fontWeight: 500 }}>
-                    Save all →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {momentsHook.moments.length === 0 && pendingPhotos.length === 0 && (
-              <p className="muted text-[12px] font-body italic font-display text-center mt-12">
-                When something matters today, keep it here.
-              </p>
-            )}
-
-            <div className="space-y-6">
-              {momentsHook.moments.map((m, i) => {
-                const shareState = shareMomentStatus[m.id] || '';
-                const photoUrl = photoUrls[m.id];
-                return (
-                  <div key={m.id} className="px-2 fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
-                    <div className="flex items-baseline gap-3 mb-2">
-                      <span className="font-display rose uppercase tracking-[0.2em] text-[9px]" style={{ fontWeight: 500 }}>{m.date_label}</span>
-                      <div className="flex-1 border-t hairline" />
-                      <button onClick={() => deleteMomentLocal(m)} className="muted text-[10px] nav-btn" aria-label="Delete">×</button>
-                      <button onClick={() => shareMoment(m)} disabled={shareState === 'sharing'}
-                        className="font-display rose tracking-[0.2em] uppercase text-[9px] nav-btn"
-                        style={{ fontWeight: 500, opacity: shareState === 'sharing' ? 0.5 : 1 }}>
-                        {shareState === 'done' ? '✓ Shared' :
-                         shareState === 'sharing' ? '...' :
-                         shareState === 'error' ? 'Try again' :
-                         '↗ Share'}
-                      </button>
-                    </div>
-                    {photoUrl && (
-                      <img src={photoUrl} alt="" className="w-full rounded-xl mb-3 object-cover" style={{ maxHeight: '280px', border: '1px solid rgba(184,133,123,0.18)' }} />
-                    )}
-                    {m.text && (
-                      <p className="font-display ink leading-snug" style={{ fontWeight: 400, fontSize: '17px' }}>
-                        {m.text}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* BOTTOM NAV */}
@@ -819,7 +620,6 @@ function MainApp() {
             { id: 'Tidy', label: 'Tidy' },
             { id: 'Nourish', label: 'Nourish' },
             { id: 'Girls', label: 'Girls' },
-            { id: 'Moments', label: 'Moments' },
           ].map(({ id, label }) => {
             const active = id === activeNav;
             return (

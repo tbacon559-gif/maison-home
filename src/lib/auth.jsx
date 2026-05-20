@@ -8,7 +8,6 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase } from './supabase.js';
 import { generateSalt } from './crypto.js';
 import { cache } from './cache.js';
-import { photoCache } from './photoCache.js';
 
 const AuthContext = createContext(null);
 
@@ -98,7 +97,6 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     await cache.clear();
-    await photoCache.clear();
     setProfile(null);
     setEncryptionKey(null);
     setSession(null);
@@ -106,18 +104,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const deleteAccount = useCallback(async () => {
-    if (session?.user?.id) {
-      const { data: files } = await supabase.storage
-        .from('moments').list(session.user.id);
-      if (files && files.length) {
-        await supabase.storage.from('moments').remove(
-          files.map((f) => `${session.user.id}/${f.name}`)
-        );
-      }
-    }
     await supabase.rpc('delete_user_account');
     await cache.clear();
-    await photoCache.clear();
     setProfile(null);
     setEncryptionKey(null);
     setSession(null);

@@ -10,7 +10,7 @@ const IMPORTED_FLAG = 'maison.imported_to_cloud';
 
 const TRACKED_KEYS = [
   'daily', 'weekly', 'meals', 'groceries', 'toBuy',
-  'notes', 'girls', 'household', 'sitterNotes', 'moments',
+  'notes', 'girls', 'household', 'sitterNotes',
   'settings', 'lastDailyResetDate', 'lastWeeklyResetDate',
 ];
 
@@ -191,37 +191,6 @@ export async function importLocalData(userId, encryptionKey) {
     }
     const { error } = await supabase.from('notes').insert(rows);
     if (error) throw new Error(`notes: ${error.message}`);
-  }
-
-  // ─ moments (encrypt caption + photo, upload, insert) ─
-  const moments = lsGetRaw('moments') || [];
-  for (let i = 0; i < moments.length; i++) {
-    const m = moments[i];
-    const newId = crypto.randomUUID();
-    const captionCipher = encryptionKey
-      ? await encryptText(encryptionKey, m.text || '')
-      : (m.text || '');
-    let photoPath = null;
-
-    if (m.photoId) {
-      const dataUrl = await getLegacyPhoto(m.photoId);
-      if (dataUrl) {
-        const buffer = dataUrlToArrayBuffer(dataUrl);
-        const stored = encryptionKey
-          ? await encryptBlob(encryptionKey, buffer)
-          : buffer;
-        photoPath = `${userId}/${newId}.bin`;
-        const { error: upErr } = await supabase.storage
-          .from('moments').upload(photoPath, new Blob([stored]));
-        if (upErr) throw new Error(`moments storage (${m.photoId}): ${upErr.message}`);
-      }
-    }
-
-    const { error } = await supabase.from('moments').insert({
-      id: newId, user_id: userId, date_label: m.date || '',
-      caption_encrypted: captionCipher, photo_storage_path: photoPath,
-    });
-    if (error) throw new Error(`moments: ${error.message}`);
   }
 
   // ─ Mark complete ─

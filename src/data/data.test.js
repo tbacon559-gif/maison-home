@@ -10,7 +10,6 @@ import {
   INITIAL_GIRLS,
   INITIAL_HOUSEHOLD,
   INITIAL_SITTER_NOTES,
-  INITIAL_MOMENTS,
   INITIAL_SETTINGS,
   WEEK,
   FULL_DAY,
@@ -120,9 +119,8 @@ describe('initial seed data — lists and profiles', () => {
     for (const h of INITIAL_HOUSEHOLD) expect(h.value).toBe('');
   });
 
-  it('sitter notes and moments start empty; settings has the expected shape', () => {
+  it('sitter notes start empty; settings has the expected shape', () => {
     expect(INITIAL_SITTER_NOTES).toBe('');
-    expect(INITIAL_MOMENTS).toEqual([]);
     expect(INITIAL_SETTINGS).toEqual({ calendarUrl: '', hasOpenedBefore: false });
   });
 });

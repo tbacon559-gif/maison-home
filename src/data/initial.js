@@ -80,8 +80,6 @@ export const INITIAL_HOUSEHOLD = [
 
 export const INITIAL_SITTER_NOTES = '';
 
-export const INITIAL_MOMENTS = [];
-
 export const INITIAL_SETTINGS = {
   calendarUrl: '',
   hasOpenedBefore: false,

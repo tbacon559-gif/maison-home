@@ -25,6 +25,8 @@ import { Checkbox, EditToggle, SectionHead, Styles } from './components/Componen
 import WelcomeOverlay from './components/WelcomeOverlay.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import SitterCardModal from './components/SitterCardModal.jsx';
+import SitterShareModal from './components/SitterShareModal.jsx';
+import { useShareLinks } from './hooks/useShareLinks.js';
 import TidyTab from './components/TidyTab.jsx';
 import KitchenTab from './components/KitchenTab.jsx';
 import SeventhDay from './components/SeventhDay.jsx';
@@ -152,6 +154,9 @@ function MainApp() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showSitterCard, setShowSitterCard] = useState(false);
+  const shareLinks = useShareLinks();
+  const [shareModal, setShareModal] = useState({ open: false, mode: 'create', editing: null });
+  const [revokingToken, setRevokingToken] = useState(null);
   const [keepReaderOpen, setKeepReaderOpen] = useState(false);
   const currentEssay = essayOfWeek();
 
@@ -348,6 +353,44 @@ function MainApp() {
         household={household.map((h) => ({ key: h.label, value: h.value }))}
         sitterNotes={profile?.sitter_notes || ''}
       />
+      <SitterShareModal
+        open={shareModal.open}
+        mode={shareModal.mode}
+        editing={shareModal.editing}
+        onCreate={(plan) => shareLinks.create(plan)}
+        onSave={(token, plan) => shareLinks.updatePlan(token, plan)}
+        onClose={() => setShareModal({ open: false, mode: 'create', editing: null })}
+      />
+      {revokingToken && (
+        <div onClick={() => setRevokingToken(null)}
+          className="absolute inset-0 z-50 flex items-center justify-center p-4 fade-in"
+          style={{ background: 'rgba(60, 40, 30, 0.55)', backdropFilter: 'blur(4px)' }}>
+          <div onClick={(e) => e.stopPropagation()}
+            className="cream-bg rounded-2xl p-6 max-w-[340px] app-shadow text-center">
+            <div className="font-display ink mb-2" style={{ fontWeight: 400, fontSize: '18px' }}>
+              End this link?
+            </div>
+            <p className="muted text-[12px] font-body mb-5 leading-relaxed">
+              The sitter's page will say it's ended.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => setRevokingToken(null)}
+                className="font-display muted text-[11px] tracking-[0.22em] uppercase">
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await shareLinks.revoke(revokingToken);
+                  setRevokingToken(null);
+                }}
+                className="font-display rose-deep text-[11px] tracking-[0.22em] uppercase nav-btn"
+                style={{ fontWeight: 500, padding: '10px 20px', border: '1px solid rgba(139,90,79,0.4)', borderRadius: '999px' }}>
+                End now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <KeepReader open={keepReaderOpen} essay={currentEssay} onClose={() => setKeepReaderOpen(false)} />
 
       {/* HEADER */}
@@ -636,13 +679,49 @@ function MainApp() {
                 <div className="font-display rose text-[10px] tracking-[0.28em] uppercase mb-2" style={{ fontWeight: 500 }}>✦ Sitter Card</div>
                 <div className="font-display ink mb-2" style={{ fontWeight: 400, fontSize: '20px' }}>The Handoff</div>
                 <p className="muted text-[12px] font-body mb-5 leading-relaxed">
-                  Share the particulars as one image. AirDrop, text, however.
+                  Share the particulars — as a screenshot, or as a live page for tonight.
                 </p>
-                <button onClick={() => setShowSitterCard(true)}
-                  className="font-display rose-deep text-[11px] tracking-[0.22em] uppercase nav-btn"
-                  style={{ fontWeight: 500, padding: '10px 20px', border: '1px solid rgba(139,90,79,0.4)', borderRadius: '999px' }}>
-                  Preview &amp; Share →
-                </button>
+
+                <div className="flex flex-col gap-3 items-center">
+                  <button onClick={() => setShowSitterCard(true)}
+                    className="font-display rose-deep text-[11px] tracking-[0.22em] uppercase nav-btn"
+                    style={{ fontWeight: 500, padding: '10px 20px', border: '1px solid rgba(139,90,79,0.4)', borderRadius: '999px' }}>
+                    Share as image →
+                  </button>
+                  <button onClick={() => setShareModal({ open: true, mode: 'create', editing: null })}
+                    className="font-display rose-deep text-[11px] tracking-[0.22em] uppercase nav-btn"
+                    style={{ fontWeight: 500, padding: '10px 20px', border: '1px solid rgba(139,90,79,0.4)', borderRadius: '999px' }}>
+                    Send a live link →
+                  </button>
+                </div>
+
+                {shareLinks.active.length > 0 && (
+                  <div className="mt-5 pt-5 border-t hairline space-y-3">
+                    {shareLinks.active.map((link) => {
+                      const t = new Date(link.expires_at).toLocaleTimeString([], {
+                        hour: 'numeric', minute: '2-digit',
+                      });
+                      return (
+                        <div key={link.token}
+                          className="flex items-center justify-center gap-3 text-[12px] font-body muted italic">
+                          <span>Live until {t}</span>
+                          <span>·</span>
+                          <button
+                            onClick={() => setShareModal({ open: true, mode: 'edit', editing: link })}
+                            className="ink underline-offset-2 hover:underline not-italic font-display text-[11px] tracking-[0.22em] uppercase">
+                            Edit
+                          </button>
+                          <span>·</span>
+                          <button
+                            onClick={() => setRevokingToken(link.token)}
+                            className="ink underline-offset-2 hover:underline not-italic font-display text-[11px] tracking-[0.22em] uppercase">
+                            End now
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>

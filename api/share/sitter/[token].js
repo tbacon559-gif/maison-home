@@ -49,6 +49,15 @@ export default async function handler(req, res) {
         .order('position'),
     ]);
 
+    if (profileRes.error || kidsRes.error || householdRes.error) {
+      console.error('share/sitter/[token]', {
+        profile: profileRes.error,
+        kids: kidsRes.error,
+        household: householdRes.error,
+      });
+      return res.status(500).json({ status: 'error' });
+    }
+
     return res.status(200).json({
       tonight_plan: link.tonight_plan || '',
       sitter_notes: profileRes.data?.sitter_notes || '',

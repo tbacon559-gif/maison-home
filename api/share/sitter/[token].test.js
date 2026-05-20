@@ -20,7 +20,7 @@ function mockRes() {
 // Tiny fluent mock of the Supabase query builder for the calls this
 // route makes: .from(table).select('...').eq(...).maybeSingle() and
 // .from(table).select('...').eq(...).order(...).
-function makeClient({ shareLinkRow, profile, kids, household }) {
+function makeClient({ shareLinkRow, profile, kids, household, profileError, kidsError, householdError }) {
   return {
     from(table) {
       if (table === 'share_links') {
@@ -34,21 +34,21 @@ function makeClient({ shareLinkRow, profile, kids, household }) {
         return {
           select() { return this; },
           eq() { return this; },
-          maybeSingle: async () => ({ data: profile ?? null, error: null }),
+          maybeSingle: async () => ({ data: profile ?? null, error: profileError ?? null }),
         };
       }
       if (table === 'kids') {
         return {
           select() { return this; },
           eq() { return this; },
-          order: async () => ({ data: kids ?? [], error: null }),
+          order: async () => ({ data: kids ?? [], error: kidsError ?? null }),
         };
       }
       if (table === 'household_items') {
         return {
           select() { return this; },
           eq() { return this; },
-          order: async () => ({ data: household ?? [], error: null }),
+          order: async () => ({ data: household ?? [], error: householdError ?? null }),
         };
       }
       throw new Error('unexpected table: ' + table);
@@ -151,6 +151,54 @@ describe('GET /api/share/sitter/[token]', () => {
     getServiceClient.mockImplementation(() => {
       throw new Error('boom');
     });
+    const req = { query: { token: 'abc' } };
+    const res = mockRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ status: 'error' });
+  });
+
+  it('returns 500 when the profile query errors', async () => {
+    getServiceClient.mockReturnValue(makeClient({
+      shareLinkRow: {
+        token: 'abc', owner_id: 'u1', tonight_plan: '',
+        created_at: PAST, expires_at: FUTURE,
+        revoked_at: null,
+      },
+      profileError: { message: 'profile boom' },
+    }));
+    const req = { query: { token: 'abc' } };
+    const res = mockRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ status: 'error' });
+  });
+
+  it('returns 500 when the kids query errors', async () => {
+    getServiceClient.mockReturnValue(makeClient({
+      shareLinkRow: {
+        token: 'abc', owner_id: 'u1', tonight_plan: '',
+        created_at: PAST, expires_at: FUTURE,
+        revoked_at: null,
+      },
+      kidsError: { message: 'kids boom' },
+    }));
+    const req = { query: { token: 'abc' } };
+    const res = mockRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(500);
+    expect(res.body).toEqual({ status: 'error' });
+  });
+
+  it('returns 500 when the household query errors', async () => {
+    getServiceClient.mockReturnValue(makeClient({
+      shareLinkRow: {
+        token: 'abc', owner_id: 'u1', tonight_plan: '',
+        created_at: PAST, expires_at: FUTURE,
+        revoked_at: null,
+      },
+      householdError: { message: 'household boom' },
+    }));
     const req = { query: { token: 'abc' } };
     const res = mockRes();
     await handler(req, res);

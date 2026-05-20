@@ -3,6 +3,14 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import SitterShareView from './SitterShareView.jsx';
 
+// Spec §3/§8: the share route mounts outside AuthProvider, so a sitter
+// opening a link must never get a stray anonymous account. If SitterShareView
+// (or anything it imports) ever reached the Supabase client, this spy fires.
+const { signInAnonymously } = vi.hoisted(() => ({ signInAnonymously: vi.fn() }));
+vi.mock('../lib/supabase.js', () => ({
+  supabase: { auth: { signInAnonymously } },
+}));
+
 const FUTURE = new Date(Date.now() + 6 * 3600 * 1000).toISOString();
 const PAST = new Date(Date.now() - 3600 * 1000).toISOString();
 
@@ -99,5 +107,12 @@ describe('SitterShareView', () => {
     await waitFor(() =>
       expect(screen.getByText(/Something went wrong/i)).toBeTruthy()
     );
+  });
+
+  it('never triggers an anonymous sign-in', async () => {
+    mockFetch(async () => ({ ok: true, status: 200, json: async () => fullPayload }));
+    render(<SitterShareView token="abc" />);
+    await screen.findByText(/Tiff's home/i);
+    expect(signInAnonymously).not.toHaveBeenCalled();
   });
 });

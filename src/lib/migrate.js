@@ -3,7 +3,7 @@
 // when localStorage has any tracked content.
 
 import { supabase } from './supabase.js';
-import { encryptText, encryptBlob } from './crypto.js';
+import { encryptText } from './crypto.js';
 
 const LS_PREFIX = 'maison.';
 const IMPORTED_FLAG = 'maison.imported_to_cloud';
@@ -38,38 +38,6 @@ export function hasLocalData() {
   return false;
 }
 
-// Open legacy IndexedDB for photos. (Same db/store as the deleted storage.js.)
-async function openLegacyPhotos() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('maison', 1);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos');
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function getLegacyPhoto(photoId) {
-  try {
-    const db = await openLegacyPhotos();
-    return new Promise((resolve) => {
-      const tx = db.transaction('photos', 'readonly');
-      const req = tx.objectStore('photos').get(photoId);
-      req.onsuccess = () => resolve(req.result ?? null);
-      req.onerror = () => resolve(null);
-    });
-  } catch { return null; }
-}
-
-function dataUrlToArrayBuffer(dataUrl) {
-  const base64 = dataUrl.split(',')[1];
-  const bin = atob(base64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes.buffer;
-}
 
 // Main importer. Throws on first table that fails so caller can surface and offer retry.
 export async function importLocalData(userId, encryptionKey) {

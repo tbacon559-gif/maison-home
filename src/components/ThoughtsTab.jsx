@@ -6,12 +6,14 @@ export default function ThoughtsTab({ listsHook }) {
   const [newTitleOpen, setNewTitleOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [justCreatedId, setJustCreatedId] = useState(null);
 
   const handleCreate = async () => {
     const t = newTitle.trim();
     setNewTitle('');
     setNewTitleOpen(false);
-    await listsHook.create(t);
+    const row = await listsHook.create(t);
+    if (row?.id) setJustCreatedId(row.id);
   };
 
   const cancelNew = () => {
@@ -74,6 +76,7 @@ export default function ThoughtsTab({ listsHook }) {
               key={list.id}
               list={list}
               mode="active"
+              autoEdit={list.id === justCreatedId}
               onRename={(t) => listsHook.rename(list.id, t)}
               onArchive={() => listsHook.archive(list.id)}
               onRestore={() => listsHook.restore(list.id)}
@@ -127,9 +130,9 @@ export default function ThoughtsTab({ listsHook }) {
   );
 }
 
-function ThoughtListCard({ list, mode, onRename, onArchive, onRestore, onDeleteList }) {
+function ThoughtListCard({ list, mode, autoEdit, onRename, onArchive, onRestore, onDeleteList }) {
   const itemsHook = useThoughtItems(list.id);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!!autoEdit);
   const [draftTitle, setDraftTitle] = useState(list.title);
   const [newItemText, setNewItemText] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -212,6 +215,7 @@ function ThoughtListCard({ list, mode, onRename, onArchive, onRestore, onDeleteL
       {!isArchived && (
         <div className="mt-3 flex items-center gap-2 pt-3 border-t hairline">
           <input
+            autoFocus={!!autoEdit}
             className="bg-transparent outline-none ink text-[13px] font-body flex-1"
             placeholder="Add an item"
             value={newItemText}
@@ -234,7 +238,7 @@ function ThoughtListCard({ list, mode, onRename, onArchive, onRestore, onDeleteL
         {editing && !isArchived ? (
           confirmDelete ? (
             <div className="flex items-center gap-2">
-              <span className="muted text-[11px] font-body italic">Delete this list?</span>
+              <span className="muted text-[11px] font-body italic">Delete this list? It can't be brought back.</span>
               <button
                 onClick={() => setConfirmDelete(false)}
                 className="font-display muted text-[10px] tracking-[0.22em] uppercase">

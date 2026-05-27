@@ -9,5 +9,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.js', 'src/**/*.test.jsx', 'api/**/*.test.js'],
+    setupFiles: ['./src/test-setup.js'],
   },
 });
